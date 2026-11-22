@@ -1,6 +1,6 @@
 // app/components/Navbar.tsx
 import Link from 'next/link';
-import { COUNTRIES } from '../lib/weather';
+import { COUNTRIES } from '../app/lib/weather';
 
 export default function Navbar() {
   return (
