@@ -8,8 +8,8 @@ import AdBanner from '../components/AdBanner';
 import CountryDashboard from '../components/CountryDashboard';
 import { MapCity } from '../components/WeatherMap';
 
-
-export const instant = false;
+export const runtime = 'edge';
+ 
 
 export async function generateMetadata({ params }: { params: Promise<{ pays: string }> }) {
   const { pays } = await params;
