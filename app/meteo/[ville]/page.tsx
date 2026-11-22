@@ -296,5 +296,5 @@ export default async function MeteoVillePage({
       )}
 <VisitorCounter />
     </main>
-  );
+  ); 
 }
