@@ -43,7 +43,7 @@ export default async function CountryPage({ params }: { params: Promise<{ pays: 
 
   // Préparation des données complètes pour la carte et le panneau de droite
   const mapCities: MapCity[] = weatherData
-    .map((data, index) => {
+    .map((data, index): MapCity | null => {
       if (!data || !data.list || data.list.length < 9 || !data.city.coord) return null;
       const current = data.list[0];
       const tomorrow = data.list[8];
