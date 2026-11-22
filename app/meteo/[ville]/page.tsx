@@ -50,6 +50,27 @@ interface DailyForecast {
 }
 
 /* Le ciel de la page change selon la météo et le moment de la journée */
+/* Logo ToutIci : les deux « i » portent un soleil et un repère de position */
+function ToutIciLogo() {
+  return (
+    <svg
+      viewBox="-12 -24 276 96"
+      role="img"
+      aria-label="ToutIci"
+      className="w-44 h-auto text-white drop-shadow-lg"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round">
+<path d="M10 6V44Q10 60 26 60"/><path d="M-2 22H24"/>
+<circle cx="54" cy="40" r="20"/>
+<path d="M84 20V40A20 20 0 0 0 124 40V20M124 38V60"/>
+<path d="M144 6V44Q144 60 160 60"/><path d="M132 22H158"/>
+<path d="M229.3 27.1A20 20 0 1 0 229.3 52.9"/>
+<path d="M178 20V60"/><path d="M250 20V60"/>
+</g><g stroke="#ffb400" strokeWidth="2.6" strokeLinecap="round"><line x1="188.0" y1="-4.0" x2="192.5" y2="-4.0"/><line x1="185.1" y1="3.1" x2="188.3" y2="6.3"/><line x1="178.0" y1="6.0" x2="178.0" y2="10.5"/><line x1="170.9" y1="3.1" x2="167.7" y2="6.3"/><line x1="168.0" y1="-4.0" x2="163.5" y2="-4.0"/><line x1="170.9" y1="-11.1" x2="167.7" y2="-14.3"/><line x1="178.0" y1="-14.0" x2="178.0" y2="-18.5"/><line x1="185.1" y1="-11.1" x2="188.3" y2="-14.3"/></g><circle cx="178" cy="-4" r="7.5" fill="#ffc21a"/><path fill="#ff5a4d" fillRule="evenodd" d="M250 10L244.7 1.4A7 7 0 1 1 255.3 1.4ZM247.5 -3a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0Z"/>
+    </svg>
+  );
+}
+
 function getSkyGradient(icon: string): string {
   const isNight = icon.endsWith('n');
   const code = icon.slice(0, 2);
@@ -288,6 +309,10 @@ export default async function MeteoVillePage({
       className="min-h-screen flex flex-col items-center gap-5 px-5 py-10 text-white"
       style={{ background: getSkyGradient(currentIcon) }}
     >
+      <header className="w-full max-w-xl px-1">
+        <ToutIciLogo />
+      </header>
+
       {/* Météo actuelle */}
       <section className="w-full max-w-xl px-1">
         <div className="flex items-start justify-between gap-4">
