@@ -19,6 +19,96 @@ interface WeatherData {
   };
 }
 
+interface ForecastItem {
+  dt: number;
+  dt_txt: string;
+  main: {
+    temp_min: number;
+    temp_max: number;
+  };
+  weather: {
+    description: string;
+    icon: string;
+  }[];
+}
+
+interface ForecastResponse {
+  list: ForecastItem[];
+}
+
+interface DailyForecast {
+  dateKey: string;
+  dayName: string;
+  dayNumber: string;
+  min: number;
+  max: number;
+  icon: string;
+  description: string;
+}
+
+function groupForecastByDay(list: ForecastItem[]): DailyForecast[] {
+  const daysMap = new Map<
+    string,
+    {
+      date: Date;
+      min: number;
+      max: number;
+      icon: string;
+      description: string;
+      hasMiddayIcon: boolean;
+    }
+  >();
+
+  for (const item of list) {
+    const dateKey = item.dt_txt.split(' ')[0]; // YYYY-MM-DD
+    const hour = item.dt_txt.split(' ')[1]; // HH:MM:SS
+    const date = new Date(item.dt * 1000);
+    const existing = daysMap.get(dateKey);
+
+    if (!existing) {
+      daysMap.set(dateKey, {
+        date,
+        min: item.main.temp_min,
+        max: item.main.temp_max,
+        icon: item.weather[0].icon,
+        description: item.weather[0].description,
+        hasMiddayIcon: hour === '12:00:00',
+      });
+    } else {
+      existing.min = Math.min(existing.min, item.main.temp_min);
+      existing.max = Math.max(existing.max, item.main.temp_max);
+      if (hour === '12:00:00' || (!existing.hasMiddayIcon && hour === '15:00:00')) {
+        existing.icon = item.weather[0].icon;
+        existing.description = item.weather[0].description;
+        existing.hasMiddayIcon = true;
+      }
+    }
+  }
+
+  return Array.from(daysMap.entries())
+    .slice(0, 6)
+    .map(([dateKey, d]) => {
+      const rawDay = new Intl.DateTimeFormat('fr-CA', {
+        weekday: 'short',
+      }).format(d.date);
+      const dayName =
+        rawDay.charAt(0).toUpperCase() + rawDay.slice(1).replace('.', '');
+      const dayNumber = new Intl.DateTimeFormat('fr-CA', {
+        day: 'numeric',
+      }).format(d.date);
+
+      return {
+        dateKey,
+        dayName,
+        dayNumber,
+        min: Math.round(d.min),
+        max: Math.round(d.max),
+        icon: d.icon,
+        description: d.description,
+      };
+    });
+}
+
 export default async function MeteoVillePage({
   params,
 }: {
@@ -46,14 +136,19 @@ export default async function MeteoVillePage({
     );
   }
 
-  const res = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
-      cityName
-    )}&appid=${apiKey}&units=metric&lang=fr`,
-    { next: { revalidate: 600 } }
-  );
+  const query = encodeURIComponent(cityName);
+  const [weatherRes, forecastRes] = await Promise.all([
+    fetch(
+      `https://api.openweathermap.org/data/2.5/weather?q=${query}&appid=${apiKey}&units=metric&lang=fr`,
+      { next: { revalidate: 600 } }
+    ),
+    fetch(
+      `https://api.openweathermap.org/data/2.5/forecast?q=${query}&appid=${apiKey}&units=metric&lang=fr`,
+      { next: { revalidate: 600 } }
+    ),
+  ]);
 
-  if (!res.ok) {
+  if (!weatherRes.ok) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6 bg-slate-950 text-white">
         <div className="max-w-md w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 text-center">
@@ -66,12 +161,17 @@ export default async function MeteoVillePage({
     );
   }
 
-  const data: WeatherData = await res.json();
+  const data: WeatherData = await weatherRes.json();
+  const forecastData: ForecastResponse | null = forecastRes.ok
+    ? await forecastRes.json()
+    : null;
+  const dailyForecast = forecastData ? groupForecastByDay(forecastData.list) : [];
   const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-slate-950 text-white">
-      <div className="max-w-md w-full rounded-2xl bg-slate-900 border border-slate-800 p-8 shadow-xl">
+    <main className="min-h-screen flex flex-col items-center justify-center gap-6 p-6 bg-slate-950 text-white">
+      {/* Carte météo actuelle */}
+      <div className="max-w-xl w-full rounded-2xl bg-slate-900 border border-slate-800 p-8 shadow-xl">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">{data.name}</h1>
@@ -115,6 +215,45 @@ export default async function MeteoVillePage({
           </div>
         </div>
       </div>
+
+      {/* Barre de prévisions journalières */}
+      {dailyForecast.length > 0 && (
+        <div className="max-w-xl w-full rounded-2xl bg-slate-900 border border-slate-800 shadow-xl overflow-x-auto">
+          <div className="grid grid-flow-col auto-cols-[minmax(88px,1fr)] divide-x divide-slate-800">
+            {dailyForecast.map((day, index) => (
+              <div
+                key={day.dateKey}
+                className={`relative flex flex-col items-center py-4 px-2 text-center ${
+                  index === 0
+                    ? 'bg-slate-800/60 border-b-2 border-cyan-400'
+                    : 'hover:bg-slate-800/30 transition-colors'
+                }`}
+              >
+                <span className="text-sm font-medium text-slate-200">
+                  {day.dayName}
+                </span>
+                <span className="text-base font-bold text-white leading-tight">
+                  {day.dayNumber}
+                </span>
+
+                <img
+                  src={`https://openweathermap.org/img/wn/${day.icon}@2x.png`}
+                  alt={day.description}
+                  title={day.description}
+                  className="w-12 h-12 my-1"
+                />
+
+                <span className="text-sm font-bold text-rose-400">
+                  {day.max}°
+                </span>
+                <span className="text-sm font-semibold text-sky-400">
+                  {day.min}°
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
