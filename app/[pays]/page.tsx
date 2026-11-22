@@ -7,7 +7,7 @@ import CitySearch from '../components/CitySearch';
 import AdBanner from '../components/AdBanner';
 import CountryDashboard from '../components/CountryDashboard';
 import { MapCity } from '../components/WeatherMap';
-export const runtime = 'edge';
+
 
 export const instant = false;
 
