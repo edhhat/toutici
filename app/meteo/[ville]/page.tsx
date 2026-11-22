@@ -48,21 +48,35 @@ interface DailyForecast {
   description: string;
 }
 
-function formatCityDate(dt: number, timezoneOffset: number): string {
-  const localDate = new Date((dt + timezoneOffset) * 1000);
-  const formatted = new Intl.DateTimeFormat('fr-CA', {
+function getCityLocalNow(timezoneOffset: number): Date {
+  return new Date(Date.now() + timezoneOffset * 1000);
+}
+
+function formatCityDateTime(timezoneOffset: number): string {
+  const localNow = getCityLocalNow(timezoneOffset);
+  const datePart = new Intl.DateTimeFormat('fr-CA', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     timeZone: 'UTC',
-  }).format(localDate);
-  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  }).format(localNow);
+
+  const timePart = new Intl.DateTimeFormat('fr-CA', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'UTC',
+  }).format(localNow);
+
+  return `${datePart.charAt(0).toUpperCase() + datePart.slice(1)} • ${timePart}`;
 }
 
 function groupForecastByDay(
   list: ForecastItem[],
   timezoneOffset: number
 ): DailyForecast[] {
+  const todayKey = getCityLocalNow(timezoneOffset).toISOString().split('T')[0];
+
   const daysMap = new Map<
     string,
     {
@@ -77,9 +91,13 @@ function groupForecastByDay(
 
   for (const item of list) {
     const localDate = new Date((item.dt + timezoneOffset) * 1000);
-    const dateKey = localDate.toISOString().split('T')[0]; // YYYY-MM-DD en heure locale
+    const dateKey = localDate.toISOString().split('T')[0];
+
+    // Exclut aujourd'hui (selon le fuseau horaire de la ville) pour éviter le doublon
+    if (dateKey <= todayKey) continue;
+
     const localHour = localDate.getUTCHours();
-    const dayIcon = item.weather[0].icon.replace('n', 'd'); // Force l'icône de jour
+    const dayIcon = item.weather[0].icon.replace('n', 'd');
     const existing = daysMap.get(dateKey);
 
     if (!existing) {
@@ -103,7 +121,7 @@ function groupForecastByDay(
   }
 
   return Array.from(daysMap.entries())
-    .slice(0, 6)
+    .slice(0, 5)
     .map(([dateKey, d]) => {
       const rawDay = new Intl.DateTimeFormat('fr-CA', {
         weekday: 'short',
@@ -187,7 +205,7 @@ export default async function MeteoVillePage({
   const dailyForecast = forecastData
     ? groupForecastByDay(forecastData.list, data.timezone)
     : [];
-  const todayFormatted = formatCityDate(data.dt, data.timezone);
+  const todayFormatted = formatCityDateTime(data.timezone);
   const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
 
   return (
@@ -241,18 +259,14 @@ export default async function MeteoVillePage({
         </div>
       </div>
 
-      {/* Barre de prévisions journalières */}
+      {/* Barre de prévisions des jours suivants */}
       {dailyForecast.length > 0 && (
         <div className="max-w-xl w-full rounded-2xl bg-slate-900 border border-slate-800 shadow-xl overflow-x-auto">
           <div className="grid grid-flow-col auto-cols-[minmax(88px,1fr)] divide-x divide-slate-800">
-            {dailyForecast.map((day, index) => (
+            {dailyForecast.map((day) => (
               <div
                 key={day.dateKey}
-                className={`relative flex flex-col items-center py-4 px-2 text-center ${
-                  index === 0
-                    ? 'bg-slate-800/60 border-b-2 border-cyan-400'
-                    : 'hover:bg-slate-800/30 transition-colors'
-                }`}
+                className="flex flex-col items-center py-4 px-2 text-center hover:bg-slate-800/30 transition-colors"
               >
                 <span className="text-sm font-medium text-slate-200">
                   {day.dayName}
