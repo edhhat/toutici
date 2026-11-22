@@ -2,6 +2,8 @@ export const runtime = 'edge';
 
 interface WeatherData {
   name: string;
+  dt: number;
+  timezone: number;
   sys: { country: string };
   main: {
     temp: number;
@@ -46,11 +48,25 @@ interface DailyForecast {
   description: string;
 }
 
-function groupForecastByDay(list: ForecastItem[]): DailyForecast[] {
+function formatCityDate(dt: number, timezoneOffset: number): string {
+  const localDate = new Date((dt + timezoneOffset) * 1000);
+  const formatted = new Intl.DateTimeFormat('fr-CA', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(localDate);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+function groupForecastByDay(
+  list: ForecastItem[],
+  timezoneOffset: number
+): DailyForecast[] {
   const daysMap = new Map<
     string,
     {
-      date: Date;
+      localDate: Date;
       min: number;
       max: number;
       icon: string;
@@ -60,25 +76,26 @@ function groupForecastByDay(list: ForecastItem[]): DailyForecast[] {
   >();
 
   for (const item of list) {
-    const dateKey = item.dt_txt.split(' ')[0]; // YYYY-MM-DD
-    const hour = item.dt_txt.split(' ')[1]; // HH:MM:SS
-    const date = new Date(item.dt * 1000);
+    const localDate = new Date((item.dt + timezoneOffset) * 1000);
+    const dateKey = localDate.toISOString().split('T')[0]; // YYYY-MM-DD en heure locale
+    const localHour = localDate.getUTCHours();
+    const dayIcon = item.weather[0].icon.replace('n', 'd'); // Force l'icône de jour
     const existing = daysMap.get(dateKey);
 
     if (!existing) {
       daysMap.set(dateKey, {
-        date,
+        localDate,
         min: item.main.temp_min,
         max: item.main.temp_max,
-        icon: item.weather[0].icon,
+        icon: dayIcon,
         description: item.weather[0].description,
-        hasMiddayIcon: hour === '12:00:00',
+        hasMiddayIcon: localHour >= 11 && localHour <= 15,
       });
     } else {
       existing.min = Math.min(existing.min, item.main.temp_min);
       existing.max = Math.max(existing.max, item.main.temp_max);
-      if (hour === '12:00:00' || (!existing.hasMiddayIcon && hour === '15:00:00')) {
-        existing.icon = item.weather[0].icon;
+      if (localHour >= 11 && localHour <= 15 && !existing.hasMiddayIcon) {
+        existing.icon = dayIcon;
         existing.description = item.weather[0].description;
         existing.hasMiddayIcon = true;
       }
@@ -90,12 +107,14 @@ function groupForecastByDay(list: ForecastItem[]): DailyForecast[] {
     .map(([dateKey, d]) => {
       const rawDay = new Intl.DateTimeFormat('fr-CA', {
         weekday: 'short',
-      }).format(d.date);
+        timeZone: 'UTC',
+      }).format(d.localDate);
       const dayName =
         rawDay.charAt(0).toUpperCase() + rawDay.slice(1).replace('.', '');
       const dayNumber = new Intl.DateTimeFormat('fr-CA', {
         day: 'numeric',
-      }).format(d.date);
+        timeZone: 'UTC',
+      }).format(d.localDate);
 
       return {
         dateKey,
@@ -165,7 +184,10 @@ export default async function MeteoVillePage({
   const forecastData: ForecastResponse | null = forecastRes.ok
     ? await forecastRes.json()
     : null;
-  const dailyForecast = forecastData ? groupForecastByDay(forecastData.list) : [];
+  const dailyForecast = forecastData
+    ? groupForecastByDay(forecastData.list, data.timezone)
+    : [];
+  const todayFormatted = formatCityDate(data.dt, data.timezone);
   const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
 
   return (
@@ -175,7 +197,10 @@ export default async function MeteoVillePage({
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">{data.name}</h1>
-            <p className="text-slate-400 capitalize">
+            <p className="text-sky-400 text-sm font-medium mt-0.5">
+              {todayFormatted}
+            </p>
+            <p className="text-slate-400 capitalize mt-1">
               {data.weather[0].description}
             </p>
           </div>
