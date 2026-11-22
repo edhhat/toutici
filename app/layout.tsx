@@ -18,6 +18,9 @@ export const metadata: Metadata = {
     template: "%s | ToutIci",
   },
   description: "Prévisions météo en direct sur toutici.ca.",
+icons: {
+    icon: "/icon.svg",
+  },
 };
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
