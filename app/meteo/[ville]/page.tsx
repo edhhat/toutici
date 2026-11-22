@@ -298,6 +298,3 @@ export default async function MeteoVillePage({
     </main>
   );
 }
-    </main>
-  );
-}
