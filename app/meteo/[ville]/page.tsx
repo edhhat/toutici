@@ -1,3 +1,4 @@
+import VisitorCounter from '@/components/VisitorCounter';
 export const runtime = 'edge';
 
 interface WeatherData {
@@ -293,6 +294,10 @@ export default async function MeteoVillePage({
           </div>
         </div>
       )}
+<VisitorCounter />
+    </main>
+  );
+}
     </main>
   );
 }
