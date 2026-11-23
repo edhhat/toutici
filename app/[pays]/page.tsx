@@ -1,6 +1,7 @@
 // app/[pays]/page.tsx
 
 import { notFound } from 'next/navigation';
+import VisitorCounter from '@/components/VisitorCounter';
 import { COUNTRIES, getWeatherAndForecast } from '../lib/weather';
 import Navbar from '../components/Navbar';
 import CitySearch from '../components/CitySearch';
@@ -9,7 +10,68 @@ import CountryDashboard from '../components/CountryDashboard';
 import { MapCity } from '../components/WeatherMap';
 
 export const runtime = 'edge';
- 
+
+/* Logo ToutIci : les deux « i » portent un soleil et un repère de position */
+function ToutIciLogo() {
+  return (
+    <svg
+      viewBox="-12 -24 276 96"
+      role="img"
+      aria-label="ToutIci"
+      className="w-44 h-auto text-white drop-shadow-lg"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round">
+<path d="M10 6V44Q10 60 26 60"/><path d="M-2 22H24"/>
+<circle cx="54" cy="40" r="20"/>
+<path d="M84 20V40A20 20 0 0 0 124 40V20M124 38V60"/>
+<path d="M144 6V44Q144 60 160 60"/><path d="M132 22H158"/>
+<path d="M229.3 27.1A20 20 0 1 0 229.3 52.9"/>
+<path d="M178 20V60"/><path d="M250 20V60"/>
+</g><g stroke="#ffb400" strokeWidth="2.6" strokeLinecap="round"><line x1="188.0" y1="-4.0" x2="192.5" y2="-4.0"/><line x1="185.1" y1="3.1" x2="188.3" y2="6.3"/><line x1="178.0" y1="6.0" x2="178.0" y2="10.5"/><line x1="170.9" y1="3.1" x2="167.7" y2="6.3"/><line x1="168.0" y1="-4.0" x2="163.5" y2="-4.0"/><line x1="170.9" y1="-11.1" x2="167.7" y2="-14.3"/><line x1="178.0" y1="-14.0" x2="178.0" y2="-18.5"/><line x1="185.1" y1="-11.1" x2="188.3" y2="-14.3"/></g><circle cx="178" cy="-4" r="7.5" fill="#ffc21a"/><path fill="#ff5a4d" fillRule="evenodd" d="M250 10L244.7 1.4A7 7 0 1 1 255.3 1.4ZM247.5 -3a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0Z"/>
+    </svg>
+  );
+}
+
+/* Le ciel de la page change selon la météo (ici : celle de la première ville du pays) */
+function getSkyGradient(icon: string): string {
+  const isNight = icon.endsWith('n');
+  const code = icon.slice(0, 2);
+
+  if (isNight) {
+    switch (code) {
+      case '01':
+      case '02':
+        return 'linear-gradient(180deg, #0b1026 0%, #1b2250 55%, #3a3470 100%)';
+      case '11':
+        return 'linear-gradient(180deg, #0a0a14 0%, #1d1a33 60%, #35224d 100%)';
+      case '13':
+        return 'linear-gradient(180deg, #141a2b 0%, #2a3550 60%, #4a5876 100%)';
+      default:
+        return 'linear-gradient(180deg, #0d1220 0%, #1c2336 60%, #2c3447 100%)';
+    }
+  }
+
+  switch (code) {
+    case '01':
+      return 'linear-gradient(180deg, #1c6fd1 0%, #4aa3e8 55%, #f2c27a 100%)';
+    case '02':
+      return 'linear-gradient(180deg, #3a7fc7 0%, #7ab1dc 60%, #cfd9df 100%)';
+    case '03':
+    case '04':
+      return 'linear-gradient(180deg, #56677d 0%, #8394a8 60%, #b4bfca 100%)';
+    case '09':
+    case '10':
+      return 'linear-gradient(180deg, #2c3e56 0%, #46607c 60%, #6c869f 100%)';
+    case '11':
+      return 'linear-gradient(180deg, #1e1b34 0%, #3b3560 60%, #5b5280 100%)';
+    case '13':
+      return 'linear-gradient(180deg, #7e97b3 0%, #b4c6d8 60%, #e3ecf4 100%)';
+    case '50':
+      return 'linear-gradient(180deg, #6b7684 0%, #9aa4af 60%, #c6ccd2 100%)';
+    default:
+      return 'linear-gradient(180deg, #1c6fd1 0%, #4aa3e8 100%)';
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ pays: string }> }) {
   const { pays } = await params;
@@ -78,82 +140,114 @@ export default async function CountryPage({ params }: { params: Promise<{ pays: 
     })
     .filter((c): c is MapCity => c !== null);
 
-  return (
-    <main className="min-h-screen bg-slate-50 p-6 md:p-8 flex flex-col justify-between">
-      <div>
-        <Navbar />
+  // Ciel : basé sur la première ville dont les données sont valides
+  const skyIcon = mapCities[0]?.icon ?? '01d';
 
-        <header className="max-w-4xl mx-auto mb-8 text-center">
-          <h1 className="text-4xl font-bold text-slate-800 mb-2">
-            {country.flag} Météo {country.name}
+  return (
+    <main
+      className="min-h-screen flex flex-col items-center gap-5 px-5 py-10 text-white"
+      style={{ background: getSkyGradient(skyIcon) }}
+    >
+      <div className="w-full max-w-4xl">
+        <Navbar />
+      </div>
+
+      <header className="w-full max-w-4xl px-1 flex flex-col gap-5">
+        <ToutIciLogo />
+        <div>
+          <h1 className="text-4xl font-semibold tracking-tight">
+            <span className="mr-3">{country.flag}</span>
+            Météo {country.name}
           </h1>
-          <p className="text-slate-600">
+          <p className="mt-1 text-white/75">
             Conditions actuelles et prévisions pour demain
           </p>
-        </header>
+        </div>
+      </header>
 
+      <div className="w-full max-w-4xl">
         <CitySearch />
-        <AdBanner label={`Bannière publicitaire - ${country.name}`} />
+      </div>
 
-        {/* Carte à gauche + Panneau détaillé à droite */}
+      <div className="w-full max-w-4xl">
+        <AdBanner label={`Bannière publicitaire - ${country.name}`} />
+      </div>
+
+      {/* Carte à gauche + Panneau détaillé à droite */}
+      <section className="w-full max-w-4xl rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 overflow-hidden text-slate-800">
         <CountryDashboard
           center={country.mapCenter}
           zoom={country.mapZoom}
           cities={mapCities}
         />
+      </section>
 
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Villes : une ligne par ville, comme les prévisions de la page ville */}
+      <section className="w-full max-w-4xl rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 px-6 py-2">
+        <h2 className="sr-only">Météo des principales villes</h2>
+        <ul className="divide-y divide-white/10">
           {weatherData.map((data, index) => {
             const fallbackName = country.cities[index].label;
 
             if (!data || !data.list || data.list.length < 9) {
               return (
-                <div
+                <li
                   key={fallbackName}
-                  className="flex justify-between p-4 bg-red-50 rounded-xl border border-red-200 text-red-600 text-sm"
+                  className="flex justify-between items-center py-3 text-sm text-red-300"
                 >
                   <span className="font-medium">{fallbackName}</span>
                   <span>Erreur de chargement</span>
-                </div>
+                </li>
               );
             }
 
             const current = data.list[0];
             const tomorrow = data.list[8];
+            const icon = current.weather[0]?.icon || '01d';
+            const description = current.weather[0]?.description || '';
 
             return (
-              <div
-                key={data.city.id}
-                className="p-5 bg-white hover:border-blue-300 transition rounded-2xl shadow-sm border border-slate-200"
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <div>
-                    <span className="font-semibold text-slate-800 text-lg">{fallbackName}</span>
-                    <p className="text-sm text-slate-500 capitalize">
-                      {current.weather[0]?.description}
-                    </p>
-                  </div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    {Math.round(current.main.temp)}°C
-                  </div>
-                </div>
-                <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center text-sm">
-                  <span className="text-slate-500">Demain :</span>
-                  <span className="text-slate-700 font-medium capitalize">
-                    {Math.round(tomorrow.main.temp)}°C, {tomorrow.weather[0]?.description}
+              <li key={data.city.id} className="flex items-center gap-3 py-3">
+                <img
+                  src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
+                  alt={description}
+                  title={description}
+                  className="w-11 h-11 shrink-0"
+                />
+                <div className="min-w-0 flex-1 leading-tight">
+                  <span className="block font-medium truncate">{fallbackName}</span>
+                  <span className="block text-xs text-white/55 capitalize truncate">
+                    {description}
                   </span>
                 </div>
-              </div>
+                <div className="text-right leading-tight">
+                  <span className="block text-2xl font-semibold tabular-nums">
+                    {Math.round(current.main.temp)}°
+                  </span>
+                  <span className="block text-xs text-white/55 capitalize">
+                    Demain : {Math.round(tomorrow.main.temp)}°, {tomorrow.weather[0]?.description}
+                  </span>
+                </div>
+              </li>
             );
           })}
-        </div>
-      </div>
+        </ul>
+      </section>
 
-      <footer className="max-w-4xl mx-auto mt-12 pt-6 border-t border-slate-200 text-center text-sm text-slate-500 w-full">
+      <footer className="w-full max-w-4xl mt-2 text-center text-sm text-white/60">
         Données météorologiques fournies par{' '}
-        <a href="https://openweathermap.org/" target="_blank" rel="noopener noreferrer" className="underline">
+        <a
+          href="https://openweathermap.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-white"
+        >
           OpenWeather
-        </a>.
+        </a>
+        .
+        <div className="mt-3 text-white/70">
+          <VisitorCounter />
+        </div>
       </footer>
     </main>
   );
