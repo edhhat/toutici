@@ -16,6 +16,8 @@ interface GeoData {
   windKmh: number;
   description: string;
   icon: string;
+  lat: number;
+  lon: number;
 }
 
 type State =
@@ -45,7 +47,13 @@ export default function GeoWeather() {
             `/api/geo-meteo?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`
           );
           if (!res.ok) throw new Error('bad response');
-          const data: GeoData = await res.json();
+          const json = await res.json();
+          const data: GeoData = {
+            ...json,
+            // coordonnées arrondies (~1 km) pour la carte
+            lat: Number(pos.coords.latitude.toFixed(2)),
+            lon: Number(pos.coords.longitude.toFixed(2)),
+          };
           setState({ status: 'ok', data });
         } catch {
           setState({
@@ -121,6 +129,13 @@ export default function GeoWeather() {
 
   const d = state.data;
 
+  // Extrait de carte OpenStreetMap centré sur la position
+  const dLat = 0.03;
+  const dLon = 0.05;
+  const bbox = [d.lon - dLon, d.lat - dLat, d.lon + dLon, d.lat + dLat].join(',');
+  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${d.lat},${d.lon}`;
+  const mapLink = `https://www.openstreetmap.org/?mlat=${d.lat}&mlon=${d.lon}#map=12/${d.lat}/${d.lon}`;
+
   return (
     <div className={card}>
       <div className="flex items-center gap-4">
@@ -163,13 +178,32 @@ export default function GeoWeather() {
         </div>
       </dl>
 
-      <button
-        type="button"
-        onClick={locate}
-        className="mt-4 text-xs text-white/60 underline hover:text-white"
-      >
-        Actualiser
-      </button>
+      <div className="mt-4 overflow-hidden rounded-2xl border border-white/15">
+        <iframe
+          title="Carte de ma position"
+          src={mapSrc}
+          loading="lazy"
+          className="block h-44 w-full border-0"
+        />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-xs text-white/60">
+        <button
+          type="button"
+          onClick={locate}
+          className="underline hover:text-white"
+        >
+          Actualiser
+        </button>
+        <a
+          href={mapLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-white"
+        >
+          Agrandir la carte
+        </a>
+      </div>
     </div>
   );
 }
