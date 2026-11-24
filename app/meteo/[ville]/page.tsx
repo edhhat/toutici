@@ -362,6 +362,16 @@ export default async function MeteoVillePage({
       className="min-h-screen flex flex-col items-center gap-5 px-5 py-10 text-white"
       style={{ background: getSkyGradient(currentIcon) }}
     >
+      <style>{`
+        @keyframes cakewiggle {
+          0%, 55%, 100% { transform: rotate(0) scale(1); }
+          65% { transform: rotate(-14deg) scale(1.15); }
+          75% { transform: rotate(12deg) scale(1.15); }
+          85% { transform: rotate(-8deg) scale(1.1); }
+          92% { transform: rotate(4deg) scale(1.05); }
+        }
+      `}</style>
+
       <header className="w-full max-w-xl px-1">
         <ToutIciLogo />
       </header>
@@ -399,11 +409,21 @@ export default async function MeteoVillePage({
           {bornToday.length > 0 && (
             <details className="relative shrink-0 pb-3 group">
               <summary
-                className="list-none cursor-pointer select-none [&::-webkit-details-marker]:hidden flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-2xl transition hover:bg-white/20 group-open:bg-white/25"
+                className="relative list-none cursor-pointer select-none [&::-webkit-details-marker]:hidden flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-2xl transition hover:bg-white/20 group-open:bg-white/25"
                 aria-label="Né ce jour"
                 title="Né ce jour"
               >
-                <span aria-hidden="true">🎂</span>
+                {/* Onde qui pulse pour inviter au clic (disparaît à l'ouverture) */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-white/30 motion-safe:animate-ping group-open:hidden"
+                />
+                <span
+                  aria-hidden="true"
+                  className="relative motion-safe:animate-[cakewiggle_3s_ease-in-out_infinite] group-open:animate-none"
+                >
+                  🎂
+                </span>
               </summary>
 
               <div className="absolute right-0 top-full z-20 mt-2 w-[min(20rem,calc(100vw-2.5rem))] rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/15 p-4 shadow-xl">
@@ -550,7 +570,7 @@ export default async function MeteoVillePage({
         </p>
 
         <p className="mt-3">
-          © {getCityLocalNow(data.timezone).getUTCFullYear()} Eddy Huart. Tous
+          © {getCityLocalNow(data.timezone).getUTCFullYear()} ToutIci.ca Tous
           droits réservés.
         </p>
         <p className="mt-1">ToutIci est la propriété d’Eddy Huart.</p>
