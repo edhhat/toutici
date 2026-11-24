@@ -17,41 +17,31 @@ interface CityDef {
   name: string;
   lat: number;
   lon: number;
-  /** 0 = toujours visible ; plus grand = visible seulement en zoomant */
-  minZoom: number;
 }
 
 const CITIES: CityDef[] = [
   // Nord
-  { name: 'Salluit', lat: 62.2, lon: -75.64, minZoom: 0 },
-  { name: 'Kangiqsujuaq', lat: 61.6, lon: -71.95, minZoom: 0 },
-  { name: 'Kangirsuk', lat: 60.02, lon: -70.03, minZoom: 0 },
-  { name: 'Puvirnituq', lat: 60.04, lon: -77.28, minZoom: 0 },
-  { name: 'Inukjuak', lat: 58.45, lon: -78.1, minZoom: 0 },
-  { name: 'Kuujjuaq', lat: 58.1, lon: -68.4, minZoom: 0 },
-  { name: 'Kuujjuarapik', lat: 55.28, lon: -77.77, minZoom: 5 },
-  { name: 'Schefferville', lat: 54.8, lon: -66.82, minZoom: 0 },
+  { name: 'Salluit', lat: 62.2, lon: -75.64 },
+  { name: 'Kangiqsujuaq', lat: 61.6, lon: -71.95 },
+  { name: 'Kangirsuk', lat: 60.02, lon: -70.03 },
+  { name: 'Puvirnituq', lat: 60.04, lon: -77.28 },
+  { name: 'Inukjuak', lat: 58.45, lon: -78.1 },
+  { name: 'Kuujjuaq', lat: 58.1, lon: -68.4 },
+  { name: 'Kuujjuarapik', lat: 55.28, lon: -77.77 },
+  { name: 'Schefferville', lat: 54.8, lon: -66.82 },
   // Centre / Abitibi
-  { name: 'Matagami', lat: 49.75, lon: -77.63, minZoom: 0 },
-  { name: 'Val-d’Or', lat: 48.1, lon: -77.78, minZoom: 0 },
-  { name: 'Rouyn-Noranda', lat: 48.24, lon: -79.02, minZoom: 6 },
-  { name: 'Mistissini', lat: 50.42, lon: -73.87, minZoom: 0 },
-  { name: 'Chibougamau', lat: 49.92, lon: -74.37, minZoom: 6 },
+  { name: 'Matagami', lat: 49.75, lon: -77.63 },
+  { name: 'Val-d’Or', lat: 48.1, lon: -77.78 },
+  { name: 'Mistissini', lat: 50.42, lon: -73.87 },
   // Côte-Nord / Gaspésie
-  { name: 'Blanc-Sablon', lat: 51.42, lon: -57.12, minZoom: 0 },
-  { name: 'Havre-Saint-Pierre', lat: 50.23, lon: -63.6, minZoom: 0 },
-  { name: 'Sept-Îles', lat: 50.2, lon: -66.38, minZoom: 6 },
-  { name: 'Baie-Comeau', lat: 49.22, lon: -68.15, minZoom: 6 },
-  { name: 'Matane', lat: 48.85, lon: -67.53, minZoom: 0 },
-  { name: 'Rimouski', lat: 48.45, lon: -68.52, minZoom: 6 },
-  { name: 'Gaspé', lat: 48.83, lon: -64.48, minZoom: 5 },
+  { name: 'Blanc-Sablon', lat: 51.42, lon: -57.12 },
+  { name: 'Havre-Saint-Pierre', lat: 50.23, lon: -63.6 },
+  { name: 'Matane', lat: 48.85, lon: -67.53 },
+  { name: 'Gaspé', lat: 48.83, lon: -64.48 },
   // Sud
-  { name: 'Saguenay', lat: 48.43, lon: -71.07, minZoom: 0 },
-  { name: 'Québec', lat: 46.81, lon: -71.21, minZoom: 0 },
-  { name: 'Trois-Rivières', lat: 46.35, lon: -72.55, minZoom: 6 },
-  { name: 'Montréal', lat: 45.5, lon: -73.57, minZoom: 0 },
-  { name: 'Gatineau', lat: 45.48, lon: -75.7, minZoom: 6 },
-  { name: 'Sherbrooke', lat: 45.4, lon: -71.89, minZoom: 6 },
+  { name: 'Saguenay', lat: 48.43, lon: -71.07 },
+  { name: 'Québec', lat: 46.81, lon: -71.21 },
+  { name: 'Montréal', lat: 45.5, lon: -73.57 },
 ];
 
 interface ForecastItem {
@@ -129,7 +119,6 @@ async function fetchCity(def: CityDef, apiKey: string): Promise<QuebecCity | nul
       name: def.name,
       lat: def.lat,
       lon: def.lon,
-      minZoom: def.minZoom,
       days: buildDays(json.list, json.city.timezone),
     };
   } catch {

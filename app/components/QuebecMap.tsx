@@ -15,8 +15,6 @@ export interface QuebecCity {
   name: string;
   lat: number;
   lon: number;
-  /** Niveau de zoom à partir duquel la ville s'affiche (évite le fouillis) */
-  minZoom: number;
   days: (DayWeather | null)[];
 }
 
@@ -26,6 +24,11 @@ export interface DayOption {
 }
 
 type Mode = 'symbole' | 'temperature';
+
+const QUEBEC_BOUNDS: [[number, number], [number, number]] = [
+  [44.9, -80.5], // sud-ouest
+  [62.9, -56.5], // nord-est
+];
 
 const MAP_CSS = `
 .qc-marker{background:none;border:none}
@@ -74,37 +77,42 @@ export default function QuebecMap({
   /* Création de la carte (une seule fois) */
   useEffect(() => {
     let cancelled = false;
+    let cleanupResize = () => {};
 
     (async () => {
       const L = (await import('leaflet')).default;
       if (cancelled || !mapEl.current || mapRef.current) return;
 
+      // Carte verrouillée : pas de zoom ni de déplacement
       const map = L.map(mapEl.current, {
-        center: [52.5, -71.5],
-        zoom: window.innerWidth < 640 ? 4 : 5,
-        minZoom: 3,
-        maxZoom: 9,
+        zoomControl: false,
+        dragging: false,
+        touchZoom: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        zoomSnap: 0,
+        attributionControl: true,
       });
+
+      // Tout le Québec (sud de Montréal -> nord du Nunavik, Blanc-Sablon -> Kuujjuarapik)
+      const fit = () => {
+        map.invalidateSize();
+        map.fitBounds(QUEBEC_BOUNDS, { padding: [10, 10], animate: false });
+      };
+      fit();
+      window.addEventListener('resize', fit);
+      cleanupResize = () => window.removeEventListener('resize', fit);
 
       // Fond de carte SANS noms de villes (les nôtres sont ajoutés par-dessus)
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
         {
-          maxZoom: 9,
           attribution:
             'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
         }
       ).addTo(map);
-
-      const syncVisibility = () => {
-        const z = map.getZoom();
-        for (const { marker, city } of markersRef.current) {
-          const shouldShow = z >= city.minZoom;
-          const isShown = map.hasLayer(marker);
-          if (shouldShow && !isShown) marker.addTo(map);
-          if (!shouldShow && isShown) marker.remove();
-        }
-      };
 
       markersRef.current = cities.map((city) => ({
         city,
@@ -120,8 +128,7 @@ export default function QuebecMap({
         }),
       }));
 
-      map.on('zoomend', syncVisibility);
-      syncVisibility();
+      markersRef.current.forEach(({ marker }) => marker.addTo(map));
 
       LRef.current = L;
       mapRef.current = map;
@@ -130,6 +137,7 @@ export default function QuebecMap({
 
     return () => {
       cancelled = true;
+      cleanupResize();
       mapRef.current?.remove();
       mapRef.current = null;
       markersRef.current = [];
@@ -187,7 +195,7 @@ export default function QuebecMap({
 
       <div
         ref={mapEl}
-        className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded-3xl border border-white/20 shadow-xl"
+        className="h-[80vh] min-h-[480px] w-full overflow-hidden rounded-3xl border border-white/20 shadow-xl"
       />
     </div>
   );
