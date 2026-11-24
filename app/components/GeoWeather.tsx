@@ -178,14 +178,23 @@ export default function GeoWeather() {
         </div>
       </dl>
 
-      <div className="mt-4 overflow-hidden rounded-2xl border border-white/15">
+      {/* Carte figée : l'iframe est plus grande que son cadre (rognée de 4rem sur les côtés et 3rem en haut/bas)
+          pour masquer les boutons +/− et le bandeau de crédits intégrés ; le crédit OSM est affiché en dessous. */}
+      <a
+        href={mapLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Ouvrir la carte complète dans un nouvel onglet"
+        className="relative mt-4 block h-44 overflow-hidden rounded-2xl border border-white/15"
+      >
         <iframe
           title="Carte de ma position"
           src={mapSrc}
           loading="lazy"
-          className="block h-44 w-full border-0"
+          tabIndex={-1}
+          className="pointer-events-none absolute -left-16 -top-12 block h-[calc(100%+6rem)] w-[calc(100%+8rem)] max-w-none border-0"
         />
-      </div>
+      </a>
 
       <div className="mt-3 flex items-center justify-between text-xs text-white/60">
         <button
@@ -195,6 +204,14 @@ export default function GeoWeather() {
         >
           Actualiser
         </button>
+        <a
+          href="https://www.openstreetmap.org/copyright"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white/45 hover:text-white hover:underline"
+        >
+          © Contributeurs OpenStreetMap
+        </a>
         <a
           href={mapLink}
           target="_blank"
