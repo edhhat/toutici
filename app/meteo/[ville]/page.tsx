@@ -218,6 +218,58 @@ function groupForecastByDay(
     });
 }
 
+interface BornToday {
+  name: string;
+  year: number;
+  description: string;
+  thumbnail?: string;
+  url?: string;
+}
+
+/* Personnalités nées ce jour-là (API « Ce jour-là » de Wikipédia en français) */
+async function getBornToday(timezoneOffset: number): Promise<BornToday[]> {
+  try {
+    const now = getCityLocalNow(timezoneOffset);
+    const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(now.getUTCDate()).padStart(2, '0');
+
+    const res = await fetch(
+      `https://api.wikimedia.org/feed/v1/wikipedia/fr/onthisday/births/${mm}/${dd}`,
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    const births: {
+      text: string;
+      year: number;
+      pages?: {
+        titles?: { normalized?: string };
+        description?: string;
+        thumbnail?: { source: string };
+        content_urls?: { desktop?: { page?: string } };
+      }[];
+    }[] = json.births ?? [];
+
+    return births
+      .filter((b) => b.pages && b.pages.length > 0)
+      .sort((a, b) => b.year - a.year)
+      .slice(0, 5)
+      .map((b) => {
+        const page = b.pages![0];
+        return {
+          name: page.titles?.normalized ?? b.text,
+          year: b.year,
+          description: page.description ?? '',
+          thumbnail: page.thumbnail?.source,
+          url: page.content_urls?.desktop?.page,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 export default async function MeteoVillePage({
   params,
 }: {
@@ -278,6 +330,7 @@ export default async function MeteoVillePage({
   const dailyForecast = forecastData
     ? groupForecastByDay(forecastData.list, data.timezone)
     : [];
+  const bornToday = await getBornToday(data.timezone);
   const todayFormatted = formatCityDateTime(data.timezone);
   const currentIcon = data.weather[0].icon;
   const iconUrl = `https://openweathermap.org/img/wn/${currentIcon}@4x.png`;
@@ -332,13 +385,55 @@ export default async function MeteoVillePage({
           />
         </div>
 
-        <div className="mt-2 flex items-end gap-4">
-          <span className="text-[7.5rem] leading-[0.9] font-extralight tracking-tighter tabular-nums">
-            {Math.round(data.main.temp)}°
-          </span>
-          <span className="pb-3 text-xl capitalize text-white/85">
-            {data.weather[0].description}
-          </span>
+        <div className="mt-2 flex items-end justify-between gap-4">
+          <div className="flex items-end gap-4 min-w-0">
+            <span className="text-[7.5rem] leading-[0.9] font-extralight tracking-tighter tabular-nums">
+              {Math.round(data.main.temp)}°
+            </span>
+            <span className="pb-3 text-xl capitalize text-white/85">
+              {data.weather[0].description}
+            </span>
+          </div>
+
+          {/* Né ce jour : à droite du chiffre (écrans ≥ sm) */}
+          {bornToday.length > 0 && (
+            <aside className="hidden sm:block w-48 shrink-0 pb-2">
+              <h2 className="text-xs uppercase tracking-wider text-white/55 mb-2 text-right">
+                Né ce jour
+              </h2>
+              <ul className="space-y-2">
+                {bornToday.slice(0, 3).map((p) => (
+                  <li
+                    key={`${p.year}-${p.name}`}
+                    className="flex items-center justify-end gap-2"
+                  >
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 text-right leading-tight hover:underline"
+                    >
+                      <span className="block text-sm font-medium truncate">
+                        {p.name}
+                      </span>
+                      <span className="block text-xs text-white/55">
+                        {p.year}
+                      </span>
+                    </a>
+                    {p.thumbnail ? (
+                      <img
+                        src={p.thumbnail}
+                        alt={p.name}
+                        className="w-9 h-9 rounded-full object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-white/15 shrink-0" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
         </div>
       </section>
 
@@ -397,6 +492,47 @@ export default async function MeteoVillePage({
                 </li>
               );
             })}
+          </ul>
+        </section>
+      )}
+
+      {/* Né ce jour (petits écrans seulement) */}
+      {bornToday.length > 0 && (
+        <section className="sm:hidden w-full max-w-xl rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 px-6 py-5">
+          <h2 className="text-sm uppercase tracking-wider text-white/60 mb-3">
+            Né ce jour
+          </h2>
+          <ul className="divide-y divide-white/10">
+            {bornToday.map((p) => (
+              <li
+                key={`${p.year}-${p.name}`}
+                className="flex items-center gap-3 py-2.5"
+              >
+                {p.thumbnail ? (
+                  <img
+                    src={p.thumbnail}
+                    alt={p.name}
+                    className="w-11 h-11 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-full bg-white/15 shrink-0" />
+                )}
+                <div className="min-w-0 leading-tight">
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block font-medium truncate hover:underline"
+                  >
+                    {p.name}
+                  </a>
+                  <span className="block text-xs text-white/55 truncate">
+                    {p.year}
+                    {p.description ? ` · ${p.description}` : ''}
+                  </span>
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
       )}
