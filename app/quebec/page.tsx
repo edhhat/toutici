@@ -40,8 +40,8 @@ const CITIES: CityDef[] = [
   // Côte-Nord / Gaspésie
   { name: 'Blanc-Sablon', lat: 51.42, lon: -57.12, minZoom: 0 },
   { name: 'Havre-Saint-Pierre', lat: 50.23, lon: -63.6, minZoom: 0 },
-  { name: 'Sept-Îles', lat: 50.2, lon: -66.38, minZoom: 5 },
-  { name: 'Baie-Comeau', lat: 49.22, lon: -68.15, minZoom: 5 },
+  { name: 'Sept-Îles', lat: 50.2, lon: -66.38, minZoom: 6 },
+  { name: 'Baie-Comeau', lat: 49.22, lon: -68.15, minZoom: 6 },
   { name: 'Matane', lat: 48.85, lon: -67.53, minZoom: 0 },
   { name: 'Rimouski', lat: 48.45, lon: -68.52, minZoom: 6 },
   { name: 'Gaspé', lat: 48.83, lon: -64.48, minZoom: 5 },
@@ -225,7 +225,7 @@ export default async function QuebecPage() {
             OpenWeather
           </a>
           {' · '}
-          Carte : © OpenStreetMap, Leaflet
+          Carte : © Esri, Leaflet
         </p>
         <p className="mt-3">© {new Date().getFullYear()} Eddy Huart. Tous droits réservés.</p>
       </footer>
