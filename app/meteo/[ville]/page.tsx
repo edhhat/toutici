@@ -1,6 +1,6 @@
 import VisitorCounter from '@/components/VisitorCounter';
-import GeoWeather from '../../components/GeoWeather';
 import LocateButton from '../../components/LocateButton';
+import FavoriteButton from '../../components/FavoriteButton';
 export const runtime = 'edge';
 
 interface WeatherData {
@@ -396,6 +396,12 @@ export default async function MeteoVillePage({
               </span>
             </h1>
             <p className="mt-1 text-white/75">{todayFormatted}</p>
+            <div className="mt-3">
+              <FavoriteButton
+                query={`${data.name},${data.sys.country}`}
+                label={data.name}
+              />
+            </div>
           </div>
           <img
             src={iconUrl}
@@ -578,11 +584,6 @@ export default async function MeteoVillePage({
           </p>
         </section>
       )}
-
-      {/* Météo à la position de l'utilisateur */}
-      <div className="w-full max-w-xl">
-        <GeoWeather />
-      </div>
 
       <div className="mt-2 text-white/70">
         <VisitorCounter />
