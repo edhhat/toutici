@@ -1,5 +1,6 @@
 import VisitorCounter from '@/components/VisitorCounter';
 import GeoWeather from '../../components/GeoWeather';
+import LocateButton from '../../components/LocateButton';
 export const runtime = 'edge';
 
 interface WeatherData {
@@ -413,7 +414,11 @@ export default async function MeteoVillePage({
             </span>
           </div>
 
-          {/* Né ce jour : s'ouvre au clic sur l'icône */}
+          <div className="flex shrink-0 items-end gap-3">
+            {/* 📍 Ma position : met à jour toute la page */}
+            <LocateButton />
+
+            {/* Né ce jour : s'ouvre au clic sur l'icône */}
           {bornToday.length > 0 && (
             <details className="relative shrink-0 pb-3 group">
               <summary
@@ -494,6 +499,7 @@ export default async function MeteoVillePage({
               </div>
             </details>
           )}
+          </div>
         </div>
       </section>
 
