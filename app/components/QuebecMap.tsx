@@ -86,10 +86,16 @@ export default function QuebecMap({
         maxZoom: 9,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
+      // Fond de carte SANS noms de villes (les nôtres sont ajoutés par-dessus)
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
+        {
+          subdomains: 'abcd',
+          maxZoom: 9,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        }
+      ).addTo(map);
 
       const syncVisibility = () => {
         const z = map.getZoom();
