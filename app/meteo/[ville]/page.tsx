@@ -1,4 +1,5 @@
 import VisitorCounter from '@/components/VisitorCounter';
+import GeoWeather from '../components/GeoWeather';
 export const runtime = 'edge';
 
 interface WeatherData {
@@ -554,6 +555,11 @@ export default async function MeteoVillePage({
           </ul>
         </section>
       )}
+
+      {/* Météo à la position de l'utilisateur */}
+      <div className="w-full max-w-xl">
+        <GeoWeather />
+      </div>
 
       <div className="mt-2 text-white/70">
         <VisitorCounter />

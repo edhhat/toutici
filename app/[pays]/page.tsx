@@ -5,6 +5,7 @@ import VisitorCounter from '@/components/VisitorCounter';
 import { COUNTRIES, getWeatherAndForecast } from '../lib/weather';
 import Navbar from '../components/Navbar';
 import CitySearch from '../components/CitySearch';
+import GeoWeather from '../components/GeoWeather';
 import AdBanner from '../components/AdBanner';
 import CountryDashboard from '../components/CountryDashboard';
 import { MapCity } from '../components/WeatherMap';
@@ -167,6 +168,11 @@ export default async function CountryPage({ params }: { params: Promise<{ pays: 
 
       <div className="w-full max-w-4xl">
         <CitySearch />
+      </div>
+
+      {/* Météo à la position de l'utilisateur */}
+      <div className="w-full max-w-4xl">
+        <GeoWeather />
       </div>
 
       <div className="w-full max-w-4xl">
