@@ -270,6 +270,21 @@ async function getBornToday(timezoneOffset: number): Promise<BornToday[]> {
   }
 }
 
+/* Animation du gâteau qui se fait manger : 5 bouchées successives, puis il réapparaît */
+const BITE_TIMES = [12, 27, 42, 57, 72];
+const BITE_CSS = `
+${BITE_TIMES.map(
+  (t, i) =>
+    `@keyframes bite${i}{0%,${t}%{transform:scale(0)}${t + 5}%,90%{transform:scale(1)}100%{transform:scale(0)}}`
+).join('\n')}
+.bite{transform-box:fill-box;transform-origin:center;transform:scale(0)}
+${BITE_TIMES.map(
+  (_, i) => `.bite${i}{animation:bite${i} 7s ease-in-out infinite}`
+).join('\n')}
+details[open] .bite{animation:none;transform:scale(0)}
+@media (prefers-reduced-motion:reduce){.bite{animation:none!important}}
+`;
+
 export default async function MeteoVillePage({
   params,
 }: {
@@ -362,15 +377,7 @@ export default async function MeteoVillePage({
       className="min-h-screen flex flex-col items-center gap-5 px-5 py-10 text-white"
       style={{ background: getSkyGradient(currentIcon) }}
     >
-      <style>{`
-        @keyframes cakewiggle {
-          0%, 55%, 100% { transform: rotate(0) scale(1); }
-          65% { transform: rotate(-14deg) scale(1.15); }
-          75% { transform: rotate(12deg) scale(1.15); }
-          85% { transform: rotate(-8deg) scale(1.1); }
-          92% { transform: rotate(4deg) scale(1.05); }
-        }
-      `}</style>
+      <style>{BITE_CSS}</style>
 
       <header className="w-full max-w-xl px-1">
         <ToutIciLogo />
@@ -418,12 +425,33 @@ export default async function MeteoVillePage({
                   aria-hidden="true"
                   className="absolute inset-0 rounded-full bg-white/30 motion-safe:animate-ping group-open:hidden"
                 />
-                <span
+                <svg
+                  viewBox="0 0 40 40"
+                  className="relative w-8 h-8"
                   aria-hidden="true"
-                  className="relative motion-safe:animate-[cakewiggle_3s_ease-in-out_infinite] group-open:animate-none"
                 >
-                  🎂
-                </span>
+                  <defs>
+                    <mask id="cakeBites">
+                      <rect width="40" height="40" fill="white" />
+                      <circle className="bite bite0" cx="32" cy="20" r="5" fill="black" />
+                      <circle className="bite bite1" cx="31" cy="27" r="5.5" fill="black" />
+                      <circle className="bite bite2" cx="24" cy="22" r="7" fill="black" />
+                      <circle className="bite bite3" cx="15" cy="25" r="9" fill="black" />
+                      <circle className="bite bite4" cx="17" cy="12" r="8" fill="black" />
+                    </mask>
+                  </defs>
+                  <ellipse cx="20" cy="33" rx="16" ry="3" fill="#e5e7eb" />
+                  <g mask="url(#cakeBites)">
+                    <rect x="8" y="22" width="24" height="10" rx="2" fill="#e8955a" />
+                    <rect x="8" y="14" width="24" height="9" rx="2" fill="#f7c6d9" />
+                    <path d="M8 14H32V18Q29 22 26 18Q23 22 20 18Q17 22 14 18Q11 22 8 18Z" fill="#ffffff" />
+                    <rect x="19" y="7" width="2" height="7" fill="#60a5fa" />
+                    <ellipse cx="20" cy="5" rx="1.6" ry="2.4" fill="#fbbf24" />
+                    <circle cx="13" cy="28" r="1" fill="#fde68a" />
+                    <circle cx="20" cy="27" r="1" fill="#fde68a" />
+                    <circle cx="27" cy="28" r="1" fill="#fde68a" />
+                  </g>
+                </svg>
               </summary>
 
               <div className="absolute right-0 top-full z-20 mt-2 w-[min(20rem,calc(100vw-2.5rem))] rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/15 p-4 shadow-xl">
@@ -570,7 +598,7 @@ export default async function MeteoVillePage({
         </p>
 
         <p className="mt-3">
-          © {getCityLocalNow(data.timezone).getUTCFullYear()} ToutIci.ca Tous
+          © {getCityLocalNow(data.timezone).getUTCFullYear()} Eddy Huart. Tous
           droits réservés.
         </p>
         <p className="mt-1">ToutIci est la propriété d’Eddy Huart.</p>
