@@ -395,44 +395,55 @@ export default async function MeteoVillePage({
             </span>
           </div>
 
-          {/* Né ce jour : à droite du chiffre (écrans ≥ sm) */}
+          {/* Né ce jour : s'ouvre au clic sur l'icône */}
           {bornToday.length > 0 && (
-            <aside className="hidden sm:block w-48 shrink-0 pb-2">
-              <h2 className="text-xs uppercase tracking-wider text-white/55 mb-2 text-right">
-                Né ce jour
-              </h2>
-              <ul className="space-y-2">
-                {bornToday.slice(0, 3).map((p) => (
-                  <li
-                    key={`${p.year}-${p.name}`}
-                    className="flex items-center justify-end gap-2"
-                  >
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-w-0 text-right leading-tight hover:underline"
+            <details className="relative shrink-0 pb-3 group">
+              <summary
+                className="list-none cursor-pointer select-none [&::-webkit-details-marker]:hidden flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-2xl transition hover:bg-white/20 group-open:bg-white/25"
+                aria-label="Né ce jour"
+                title="Né ce jour"
+              >
+                <span aria-hidden="true">🎂</span>
+              </summary>
+
+              <div className="absolute right-0 top-full z-20 mt-2 w-[min(20rem,calc(100vw-2.5rem))] rounded-2xl bg-slate-900/80 backdrop-blur-md border border-white/15 p-4 shadow-xl">
+                <h2 className="text-xs uppercase tracking-wider text-white/60 mb-2">
+                  Né ce jour
+                </h2>
+                <ul className="divide-y divide-white/10">
+                  {bornToday.map((p) => (
+                    <li
+                      key={`${p.year}-${p.name}`}
+                      className="flex items-center gap-3 py-2"
                     >
-                      <span className="block text-sm font-medium truncate">
-                        {p.name}
-                      </span>
-                      <span className="block text-xs text-white/55">
-                        {p.year}
-                      </span>
-                    </a>
-                    {p.thumbnail ? (
-                      <img
-                        src={p.thumbnail}
-                        alt={p.name}
-                        className="w-9 h-9 rounded-full object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-white/15 shrink-0" />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </aside>
+                      {p.thumbnail ? (
+                        <img
+                          src={p.thumbnail}
+                          alt={p.name}
+                          className="w-10 h-10 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-white/15 shrink-0" />
+                      )}
+                      <div className="min-w-0 leading-tight">
+                        <a
+                          href={p.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-sm font-medium truncate hover:underline"
+                        >
+                          {p.name}
+                        </a>
+                        <span className="block text-xs text-white/55 truncate">
+                          {p.year}
+                          {p.description ? ` · ${p.description}` : ''}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
           )}
         </div>
       </section>
@@ -496,50 +507,54 @@ export default async function MeteoVillePage({
         </section>
       )}
 
-      {/* Né ce jour (petits écrans seulement) */}
-      {bornToday.length > 0 && (
-        <section className="sm:hidden w-full max-w-xl rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 px-6 py-5">
-          <h2 className="text-sm uppercase tracking-wider text-white/60 mb-3">
-            Né ce jour
-          </h2>
-          <ul className="divide-y divide-white/10">
-            {bornToday.map((p) => (
-              <li
-                key={`${p.year}-${p.name}`}
-                className="flex items-center gap-3 py-2.5"
-              >
-                {p.thumbnail ? (
-                  <img
-                    src={p.thumbnail}
-                    alt={p.name}
-                    className="w-11 h-11 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="w-11 h-11 rounded-full bg-white/15 shrink-0" />
-                )}
-                <div className="min-w-0 leading-tight">
-                  <a
-                    href={p.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block font-medium truncate hover:underline"
-                  >
-                    {p.name}
-                  </a>
-                  <span className="block text-xs text-white/55 truncate">
-                    {p.year}
-                    {p.description ? ` · ${p.description}` : ''}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <div className="mt-2 text-white/70">
         <VisitorCounter />
       </div>
+
+      <footer className="w-full max-w-xl mt-6 pt-6 border-t border-white/15 text-center text-xs leading-relaxed text-white/55">
+        <nav
+          aria-label="Liens du pied de page"
+          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-white/75"
+        >
+          <a href="/" className="hover:text-white hover:underline">
+            Accueil
+          </a>
+          <a href="/conditions" className="hover:text-white hover:underline">
+            Conditions d’utilisation
+          </a>
+          <a href="/confidentialite" className="hover:text-white hover:underline">
+            Politique de confidentialité
+          </a>
+        </nav>
+
+        <p className="mt-5">
+          Données météo :{' '}
+          <a
+            href="https://openweathermap.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-white/80"
+          >
+            OpenWeather
+          </a>
+          {' · '}
+          Personnalités :{' '}
+          <a
+            href="https://fr.wikipedia.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-white/80"
+          >
+            Wikipédia
+          </a>
+        </p>
+
+        <p className="mt-3">
+          © {getCityLocalNow(data.timezone).getUTCFullYear()} Eddy Huart. Tous
+          droits réservés.
+        </p>
+        <p className="mt-1">ToutIci est la propriété d’Eddy Huart.</p>
+      </footer>
     </main>
   );
 }
