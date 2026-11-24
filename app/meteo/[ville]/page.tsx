@@ -1,5 +1,5 @@
 import VisitorCounter from '@/components/VisitorCounter';
-import GeoWeather from '../components/GeoWeather';
+import GeoWeather from '../../components/GeoWeather';
 export const runtime = 'edge';
 
 interface WeatherData {
