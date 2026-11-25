@@ -70,12 +70,42 @@ export async function GET(request: NextRequest) {
 
     const [scores, standings] = await Promise.all([sRes.json(), stRes.json()]);
 
+    // Derniers matchs joués : les 3 jours précédents (seulement pour la vue « aujourd'hui »)
+    let recent: { date: string; games: ReturnType<typeof slimGame>[] }[] = [];
+    const baseDate: string | null = scores.currentDate ?? null;
+
+    if (!date && baseDate) {
+      const dates = [1, 2, 3].map((n) => {
+        const d = new Date(`${baseDate}T12:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - n);
+        return d.toISOString().slice(0, 10);
+      });
+
+      const settled = await Promise.allSettled(
+        dates.map(async (d) => {
+          const res = await fetch(`${BASE}/score/${d}`, { cache: 'no-store' });
+          if (!res.ok) throw new Error('score');
+          const json: any = await res.json();
+          return { date: d, games: (json.games ?? []).map(slimGame) };
+        })
+      );
+
+      recent = settled
+        .filter(
+          (s): s is PromiseFulfilledResult<{ date: string; games: ReturnType<typeof slimGame>[] }> =>
+            s.status === 'fulfilled'
+        )
+        .map((s) => s.value)
+        .filter((d) => d.games.length > 0);
+    }
+
     return NextResponse.json(
       {
         currentDate: scores.currentDate ?? date ?? null,
         prevDate: scores.prevDate ?? null,
         nextDate: scores.nextDate ?? null,
         games: (scores.games ?? []).map(slimGame),
+        recent,
         standings: (standings.standings ?? []).map(slimStanding),
         fetchedAt: Date.now(),
       },

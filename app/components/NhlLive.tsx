@@ -49,6 +49,7 @@ interface NhlData {
   prevDate: string | null;
   nextDate: string | null;
   games: Game[];
+  recent: { date: string; games: Game[] }[];
   standings: Standing[];
   fetchedAt: number;
 }
@@ -359,6 +360,29 @@ export default function NhlLive() {
               {games.map((g) => (
                 <GameCard key={g.id} g={g} />
               ))}
+            </div>
+          )}
+
+          {/* Derniers matchs joués (jours précédents) */}
+          {!date && data.recent && data.recent.length > 0 && (
+            <div className="mt-10">
+              <h2 className="mb-4 text-xl font-bold">Derniers matchs joués</h2>
+              <div className="space-y-6">
+                {data.recent.map((day) => (
+                  <div key={day.date}>
+                    <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-white/70">
+                      {formatLongDate(day.date)}
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[...day.games]
+                        .sort((a, b) => a.startTimeUTC.localeCompare(b.startTimeUTC))
+                        .map((g) => (
+                          <GameCard key={g.id} g={g} />
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
