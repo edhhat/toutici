@@ -185,11 +185,11 @@ function GameEvents({ id, live }: { id: number; live: boolean }) {
       {events.map((e) => (
         <li key={e.id} className="flex items-start gap-2">
           <span
-            className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+            className={`mt-0.5 w-[68px] shrink-0 rounded px-1.5 py-0.5 text-center text-[10px] font-bold ${
               e.type === 'goal' ? 'bg-amber-300 text-slate-900' : 'bg-white/20 text-white'
             }`}
           >
-            {e.type === 'goal' ? 'BUT' : 'PÉN.'}
+            {e.type === 'goal' ? 'BUT' : 'PÉNALITÉ'}
           </span>
           <span className="shrink-0 tabular-nums text-white/60">
             {periodLabel(e.period, e.periodType)} {e.time}
@@ -391,7 +391,7 @@ export default function NhlLive() {
   return (
     <div className="w-full">
       {/* Onglets */}
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
         <button className={pill(tab === 'resultats')} onClick={() => setTab('resultats')}>
           Résultats{liveCount > 0 ? ` · ${liveCount} en direct` : ''}
         </button>
@@ -399,7 +399,7 @@ export default function NhlLive() {
           Classement
         </button>
         {data && (
-          <span className="ml-auto text-xs text-white/70">
+          <span className="w-full text-center text-xs text-white/70">
             Mis à jour à{' '}
             {new Date(data.fetchedAt).toLocaleTimeString('fr-CA', { timeStyle: 'medium' })}
           </span>
@@ -447,7 +447,7 @@ export default function NhlLive() {
           {games.length === 0 ? (
             <p className="py-10 text-center text-white/80">Aucun match ce jour-là.</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid justify-center gap-3 grid-cols-[repeat(auto-fit,minmax(280px,380px))]">
               {games.map((g) => (
                 <GameCard key={g.id} g={g} />
               ))}
@@ -457,14 +457,14 @@ export default function NhlLive() {
           {/* Derniers matchs joués (jours précédents) */}
           {!date && data.recent && data.recent.length > 0 && (
             <div className="mt-10">
-              <h2 className="mb-4 text-xl font-bold">Derniers matchs joués</h2>
+              <h2 className="mb-4 text-center text-xl font-bold">Derniers matchs joués</h2>
               <div className="space-y-6">
                 {data.recent.map((day) => (
                   <div key={day.date}>
-                    <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-white/70">
+                    <h3 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-white/70">
                       {formatLongDate(day.date)}
                     </h3>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid justify-center gap-3 grid-cols-[repeat(auto-fit,minmax(280px,380px))]">
                       {[...day.games]
                         .sort((a, b) => a.startTimeUTC.localeCompare(b.startTimeUTC))
                         .map((g) => (
@@ -482,7 +482,7 @@ export default function NhlLive() {
       {/* Classement */}
       {data && tab === 'classement' && (
         <div>
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap justify-center gap-2">
             <button className={pill(view === 'division')} onClick={() => setView('division')}>
               Division
             </button>
@@ -498,7 +498,7 @@ export default function NhlLive() {
             <div className="space-y-6">
               {(['Eastern', 'Western'] as const).map((conf) => (
                 <div key={conf}>
-                  <h2 className="mb-3 text-xl font-bold">{CONFERENCES_FR[conf]}</h2>
+                  <h2 className="mb-3 text-center text-xl font-bold">{CONFERENCES_FR[conf]}</h2>
                   <div className="grid gap-4 lg:grid-cols-2">
                     {(conf === 'Eastern' ? ['Atlantic', 'Metropolitan'] : ['Central', 'Pacific']).map(
                       (div) => (

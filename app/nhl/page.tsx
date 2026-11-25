@@ -14,7 +14,7 @@ export default function NhlPage() {
       className="min-h-screen flex flex-col items-center gap-5 px-4 py-8 text-white"
       style={{ background: 'linear-gradient(180deg, #0b2447 0%, #19376d 50%, #576cbc 100%)' }}
     >
-      <div className="w-full max-w-6xl">
+      <div className="w-full max-w-6xl text-center">
         <a href="/" className="text-sm text-white/80 hover:text-white hover:underline">
           ← Accueil
         </a>

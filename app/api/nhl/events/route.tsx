@@ -30,10 +30,20 @@ const PENALTIES_FR: Record<string, string> = {
   'game-misconduct': 'Inconduite de partie',
 };
 
-function penaltyFr(key: string): string {
-  if (PENALTIES_FR[key]) return PENALTIES_FR[key];
+function penaltyFr(rawKey: string): string {
+  // Ex. « high-sticking-double-minor » -> « Bâton élevé (double mineure) »
+  let key = rawKey;
+  let suffix = '';
+  if (key.endsWith('-double-minor')) {
+    key = key.replace(/-double-minor$/, '');
+    suffix = ' (double mineure)';
+  } else if (key.endsWith('-major')) {
+    key = key.replace(/-major$/, '');
+    suffix = ' (majeure)';
+  }
+  if (PENALTIES_FR[key]) return PENALTIES_FR[key] + suffix;
   const s = key.replace(/-/g, ' ');
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.charAt(0).toUpperCase() + s.slice(1) + suffix;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
