@@ -128,10 +128,87 @@ function Logo({ src, alt, size = 28 }: { src: string; alt: string; size?: number
   return <img src={src} alt={alt} width={size} height={size} loading="lazy" />;
 }
 
+interface GameEvent {
+  id: number;
+  type: 'goal' | 'penalty';
+  period: number | null;
+  periodType: string;
+  time: string;
+  team: string;
+  text: string;
+  score?: string;
+}
+
+function GameEvents({ id, live }: { id: number; live: boolean }) {
+  const [events, setEvents] = useState<GameEvent[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let stop = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/nhl/events?id=${id}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (!res.ok || json.error) throw new Error('events');
+        if (!stop) {
+          setEvents(json.events as GameEvent[]);
+          setFailed(false);
+        }
+      } catch {
+        if (!stop) setFailed(true);
+      }
+    };
+
+    load();
+    if (!live) return () => { stop = true; };
+
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, POLL_MS);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [id, live]);
+
+  if (failed && !events) {
+    return <p className="mt-3 text-xs text-white/60">Événements indisponibles.</p>;
+  }
+  if (!events) return <p className="mt-3 text-xs text-white/60">Chargement des événements…</p>;
+  if (events.length === 0) {
+    return <p className="mt-3 text-xs text-white/60">Aucun but ni pénalité pour l’instant.</p>;
+  }
+
+  return (
+    <ul className="mt-3 max-h-56 space-y-1.5 overflow-y-auto border-t border-white/15 pt-3 pr-1 text-xs">
+      {events.map((e) => (
+        <li key={e.id} className="flex items-start gap-2">
+          <span
+            className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+              e.type === 'goal' ? 'bg-amber-300 text-slate-900' : 'bg-white/20 text-white'
+            }`}
+          >
+            {e.type === 'goal' ? 'BUT' : 'PÉN.'}
+          </span>
+          <span className="shrink-0 tabular-nums text-white/60">
+            {periodLabel(e.period, e.periodType)} {e.time}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold">{e.team}</span> · {e.text}
+            {e.score && <span className="ml-1 font-bold text-amber-200">{e.score}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function GameCard({ g }: { g: Game }) {
   const live = isLive(g.state);
   const fin = isFinal(g.state);
   const future = isFuture(g.state);
+  const [open, setOpen] = useState(false);
 
   const awayWins = fin && (g.away.score ?? 0) > (g.home.score ?? 0);
   const homeWins = fin && (g.home.score ?? 0) > (g.away.score ?? 0);
@@ -171,6 +248,20 @@ function GameCard({ g }: { g: Game }) {
         <Row t={g.away} bold={awayWins || (live && (g.away.score ?? 0) > (g.home.score ?? 0))} />
         <Row t={g.home} bold={homeWins || (live && (g.home.score ?? 0) > (g.away.score ?? 0))} />
       </div>
+
+      {/* Événements : toujours visibles en direct, à la demande pour les matchs terminés */}
+      {live && <GameEvents id={g.id} live />}
+      {fin && (
+        <>
+          <button
+            className="mt-3 text-xs font-semibold text-white/80 underline"
+            onClick={() => setOpen((o) => !o)}
+          >
+            {open ? 'Masquer les événements' : 'Voir les événements'}
+          </button>
+          {open && <GameEvents id={g.id} live={false} />}
+        </>
+      )}
     </div>
   );
 }
