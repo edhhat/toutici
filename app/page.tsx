@@ -1,6 +1,7 @@
 // app/page.tsx
 import VisitorCounter from '@/components/VisitorCounter';
 import HomeSearch from './components/HomeSearch';
+import HeroPhotos, { type HeroPhoto } from './components/HeroPhotos';
 
 export const runtime = 'edge';
 
@@ -185,6 +186,170 @@ async function getNhlSummary(): Promise<NhlSummary | null> {
   }
 }
 
+/* ---------- Plan B : « Image du jour » de Wikimedia Commons ---------- */
+async function getWikimediaPhotos(): Promise<HeroPhoto[]> {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(Date.now() - i * 86_400_000);
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${d.getUTCFullYear()}/${mm}/${dd}`;
+  });
+
+  const results = await Promise.all(
+    days.map(async (day): Promise<HeroPhoto | null> => {
+      try {
+        const res = await fetch(`https://fr.wikipedia.org/api/rest_v1/feed/featured/${day}`, {
+          headers: { 'User-Agent': 'ToutIci/1.0 (https://toutici.ca)', Accept: 'application/json' },
+          next: { revalidate: 3600 },
+        });
+        if (!res.ok) return null;
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const json: any = await res.json();
+        const img = json.image;
+        if (!img) return null;
+
+        // Seulement de vraies photos paysage (pas de vidéos, de cartes SVG ni de portraits)
+        const full = img.image;
+        if (!full?.source || !/\.(jpe?g|png|webp)$/i.test(full.source)) return null;
+        if (typeof full.width === 'number' && typeof full.height === 'number' && full.width < full.height) {
+          return null;
+        }
+
+        let src: string | undefined = img.thumbnail?.source;
+        if (!src) return null;
+        if (typeof full.width === 'number' && full.width >= 1280) {
+          src = src.replace(/\/\d+px-([^/]+)$/, '/1280px-$1');
+        }
+
+        const credit: string = String(img.artist?.text ?? img.credit?.text ?? 'Wikimedia Commons')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 60);
+
+        return {
+          src,
+          alt: String(img.description?.text ?? img.title ?? '').slice(0, 160),
+          credit: credit || 'Wikimedia Commons',
+          license: String(img.license?.type ?? ''),
+          source: 'Wikimedia Commons',
+          page:
+            img.file_page ??
+            `https://commons.wikimedia.org/wiki/${encodeURIComponent(String(img.title ?? ''))}`,
+        };
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const seen = new Set<string>();
+  return results.filter((r): r is HeroPhoto => {
+    if (!r || seen.has(r.src)) return false;
+    seen.add(r.src);
+    return true;
+  });
+}
+
+/* ---------- Photos précises (Québec, hiver, hockey…) : recherche sur Wikimedia Commons, sans clé ---------- */
+const COMMONS_QUERIES = [
+  'Quebec City',
+  'Montreal skyline',
+  'Quebec winter snow',
+  'ice hockey',
+  'Quebec autumn',
+];
+
+const stripHtml = (s: string) =>
+  s
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, '’')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+async function getCommonsPhotos(): Promise<HeroPhoto[]> {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const lists: HeroPhoto[][] = await Promise.all(
+    COMMONS_QUERIES.map(async (q): Promise<HeroPhoto[]> => {
+      try {
+        const params = new URLSearchParams({
+          action: 'query',
+          format: 'json',
+          generator: 'search',
+          gsrsearch: `${q} filetype:bitmap`,
+          gsrnamespace: '6',
+          gsrlimit: '20',
+          prop: 'imageinfo',
+          iiprop: 'url|size|mime|extmetadata',
+          iiurlwidth: '1280',
+          iiextmetadatafilter: 'Artist|LicenseShortName|ObjectName',
+        });
+        const res = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {
+          headers: { 'User-Agent': 'ToutIci/1.0 (https://toutici.ca)', Accept: 'application/json' },
+          next: { revalidate: 3600 },
+        });
+        if (!res.ok) return [];
+        const json: any = await res.json();
+        const pages: any[] = Object.values(json?.query?.pages ?? {});
+        pages.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+
+        const out: HeroPhoto[] = [];
+        for (const pg of pages) {
+          const info = pg.imageinfo?.[0];
+          if (!info?.thumburl) continue;
+          // Seulement de vraies photos JPEG en paysage et de bonne taille
+          if (info.mime !== 'image/jpeg') continue;
+          if (typeof info.width !== 'number' || typeof info.height !== 'number') continue;
+          const ratio = info.width / info.height;
+          if (info.width < 1600 || ratio < 1.3 || ratio > 2.4) continue;
+
+          const meta = info.extmetadata ?? {};
+          const artist = stripHtml(String(meta.Artist?.value ?? '')).slice(0, 60);
+          out.push({
+            src: String(info.thumburl),
+            alt: stripHtml(String(meta.ObjectName?.value ?? pg.title ?? '')).slice(0, 160),
+            credit: artist || 'Wikimedia Commons',
+            license: stripHtml(String(meta.LicenseShortName?.value ?? '')).slice(0, 30),
+            source: 'Wikimedia Commons',
+            page: String(info.descriptionurl ?? 'https://commons.wikimedia.org'),
+          });
+          if (out.length >= 6) break;
+        }
+        return out;
+      } catch {
+        return [];
+      }
+    })
+  );
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  // Une photo de chaque recherche à tour de rôle, sans doublon
+  const mixed: HeroPhoto[] = [];
+  const seen = new Set<string>();
+  for (let round = 0; round < 6; round++) {
+    for (const list of lists) {
+      const ph = list[round];
+      if (ph && !seen.has(ph.src)) {
+        seen.add(ph.src);
+        mixed.push(ph);
+      }
+    }
+  }
+
+  // Le point de départ change chaque jour, pour que la page se renouvelle
+  const dayNumber = Math.floor(Date.now() / 86_400_000);
+  const offset = mixed.length ? dayNumber % mixed.length : 0;
+  return [...mixed.slice(offset), ...mixed.slice(0, offset)].slice(0, 12);
+}
+
+async function getHeroPhotos(): Promise<HeroPhoto[]> {
+  const photos = await getCommonsPhotos();
+  if (photos.length >= 3) return photos;
+  return getWikimediaPhotos(); // plan B : image du jour
+}
+
 /* ---------- Style ---------- */
 const HOME_CSS = `
 @keyframes tici-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
@@ -233,7 +398,11 @@ export default async function HomePage() {
   const apiKey =
     process.env.OPENWEATHER_API_KEY || process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
-  const [cities, nhl] = await Promise.all([getCitiesNow(apiKey), getNhlSummary()]);
+  const [cities, nhl, photos] = await Promise.all([
+    getCitiesNow(apiKey),
+    getNhlSummary(),
+    getHeroPhotos(),
+  ]);
 
   const featured = cities.find((c) => c.name === 'Montréal') ?? null;
   const others = cities.filter((c) => c !== featured);
@@ -316,12 +485,15 @@ export default async function HomePage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
           {/* Héros + recherche */}
           <section className={`${tile} lg:col-span-8 lg:row-span-2`} aria-label="Recherche">
-            <div
-              aria-hidden="true"
-              className="absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
-              style={{ background: `radial-gradient(circle, ${ACCENT}33 0%, transparent 70%)` }}
-            />
-            <div className="relative flex h-full flex-col justify-between gap-10">
+            <HeroPhotos photos={photos} />
+            {photos.length === 0 && (
+              <div
+                aria-hidden="true"
+                className="absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
+                style={{ background: `radial-gradient(circle, ${ACCENT}33 0%, transparent 70%)` }}
+              />
+            )}
+            <div className="relative z-10 flex h-full flex-col justify-between gap-10">
               <div>
                 <span className="inline-block rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-400">
                   {dateLabel}
@@ -532,6 +704,14 @@ export default async function HomePage() {
               OpenWeather
             </a>
             {' · '}Hockey : LNH (site non affilié à la LNH)
+            {photos.length > 0 && (
+              <>
+                {' · '}Photos :{' '}
+                <a href="https://commons.wikimedia.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+                  Wikimedia Commons
+                </a>
+              </>
+            )}
           </p>
           <p className="mt-3">© {now.getFullYear()} Eddy Huart. Tous droits réservés.</p>
           <p className="mt-1">ToutIci est la propriété d’Eddy Huart.</p>
