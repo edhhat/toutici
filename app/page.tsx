@@ -2,13 +2,14 @@
 import VisitorCounter from '@/components/VisitorCounter';
 import HomeSearch from './components/HomeSearch';
 import HeroPhotos, { type HeroPhoto } from './components/HeroPhotos';
+import WorldLive, { type NewsItem, type Quake, type WorldCity } from './components/WorldLive';
 
 export const runtime = 'edge';
 
 export const metadata = {
   title: 'ToutIci · Météo, carte du Québec et LNH en direct',
   description:
-    'Météo de toutes les villes, carte météo du Québec, résultats et classement de la LNH en direct. Tout au même endroit.',
+    'Tout ici, tout de suite. Météo des villes du Québec et du Canada, carte météo du Québec, LNH en direct et actualités du monde.',
 };
 
 const ACCENT = '#c8ff3d';
@@ -350,6 +351,121 @@ async function getHeroPhotos(): Promise<HeroPhoto[]> {
   return getWikimediaPhotos(); // plan B : image du jour
 }
 
+/* ---------- Le monde en direct ---------- */
+const WIKI_HEADERS = { 'User-Agent': 'ToutIci/1.0 (https://toutici.ca)', Accept: 'application/json' };
+
+function stripHtmlText(s: string): string {
+  return s
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, '’')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.;:)])/g, '$1')
+    .trim();
+}
+
+/* Actualités : rubrique « À la une » de Wikipédia en français (texte CC BY-SA 4.0) */
+async function getWorldNews(): Promise<NewsItem[]> {
+  for (const back of [0, 1]) {
+    try {
+      const d = new Date(Date.now() - back * 86_400_000);
+      const day = `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
+      const res = await fetch(`https://fr.wikipedia.org/api/rest_v1/feed/featured/${day}`, {
+        headers: WIKI_HEADERS,
+        next: { revalidate: 600 },
+      });
+      if (!res.ok) continue;
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      const json: any = await res.json();
+      const items: NewsItem[] = (json.news ?? [])
+        .map((n: any) => {
+          const text = stripHtmlText(String(n.story ?? ''));
+          const url = n.links?.[0]?.content_urls?.desktop?.page ?? 'https://fr.wikipedia.org';
+          return { text, url: String(url) };
+        })
+        .filter((n: NewsItem) => n.text.length > 10)
+        .slice(0, 8);
+      /* eslint-enable @typescript-eslint/no-explicit-any */
+      if (items.length > 0) return items;
+    } catch {
+      /* on essaie la veille */
+    }
+  }
+  return [];
+}
+
+/* Séismes M4,5+ des dernières 24 h : USGS (domaine public) */
+async function getQuakes(): Promise<Quake[]> {
+  try {
+    const res = await fetch(
+      'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson',
+      { next: { revalidate: 300 } }
+    );
+    if (!res.ok) return [];
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const json: any = await res.json();
+    return (json.features ?? [])
+      .map((f: any): Quake | null => {
+        const c = f.geometry?.coordinates;
+        const pr = f.properties;
+        if (!Array.isArray(c) || typeof pr?.mag !== 'number') return null;
+        return {
+          id: String(f.id),
+          mag: pr.mag,
+          place: String(pr.place ?? 'Lieu inconnu'),
+          time: Number(pr.time),
+          lat: Number(c[1]),
+          lon: Number(c[0]),
+          url: String(pr.url ?? 'https://earthquake.usgs.gov'),
+        };
+      })
+      .filter((q: Quake | null): q is Quake => q !== null);
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  } catch {
+    return [];
+  }
+}
+
+const WORLD_CITIES = [
+  { name: 'Paris', q: 'Paris,FR', link: 'Paris' },
+  { name: 'Londres', q: 'London,GB', link: 'London' },
+  { name: 'New York', q: 'New York,US', link: 'New York' },
+  { name: 'Los Angeles', q: 'Los Angeles,US', link: 'Los Angeles' },
+  { name: 'Tokyo', q: 'Tokyo,JP', link: 'Tokyo' },
+  { name: 'Sydney', q: 'Sydney,AU', link: 'Sydney' },
+  { name: 'Dubaï', q: 'Dubai,AE', link: 'Dubai' },
+  { name: 'Rio de Janeiro', q: 'Rio de Janeiro,BR', link: 'Rio de Janeiro' },
+];
+
+async function getWorldCities(apiKey: string | undefined): Promise<WorldCity[]> {
+  if (!apiKey) return [];
+  const results = await Promise.all(
+    WORLD_CITIES.map(async (c): Promise<WorldCity | null> => {
+      try {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(c.q)}&units=metric&lang=fr&appid=${apiKey}`,
+          { next: { revalidate: 600 } }
+        );
+        if (!res.ok) return null;
+        const d = await res.json();
+        return {
+          name: c.name,
+          link: c.link,
+          temp: Math.round(d.main.temp),
+          icon: d.weather?.[0]?.icon ?? '01d',
+          description: d.weather?.[0]?.description ?? '',
+          tz: Number(d.timezone ?? 0),
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+  return results.filter((r): r is WorldCity => r !== null);
+}
+
 /* ---------- Style ---------- */
 const HOME_CSS = `
 @keyframes tici-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
@@ -398,10 +514,13 @@ export default async function HomePage() {
   const apiKey =
     process.env.OPENWEATHER_API_KEY || process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
-  const [cities, nhl, photos] = await Promise.all([
+  const [cities, nhl, photos, news, quakes, worldCities] = await Promise.all([
     getCitiesNow(apiKey),
     getNhlSummary(),
     getHeroPhotos(),
+    getWorldNews(),
+    getQuakes(),
+    getWorldCities(apiKey),
   ]);
 
   const featured = cities.find((c) => c.name === 'Montréal') ?? null;
@@ -481,37 +600,44 @@ export default async function HomePage() {
           </nav>
         </header>
 
+        {/* Bandeau titre + recherche, avec les photos */}
+        <section className={`${tile} mb-4`} aria-label="Recherche">
+          <HeroPhotos photos={photos} />
+          {photos.length === 0 && (
+            <div
+              aria-hidden="true"
+              className="absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
+              style={{ background: `radial-gradient(circle, ${ACCENT}33 0%, transparent 70%)` }}
+            />
+          )}
+          <div className="relative z-10 grid items-end gap-8 pt-8 lg:grid-cols-2 lg:gap-12">
+            <div>
+              <span className="inline-block rounded-full border border-white/15 bg-black/30 px-3 py-1 text-xs font-medium text-zinc-300 backdrop-blur">
+                {dateLabel}
+              </span>
+              <h1 className="mt-5 text-4xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
+                Météo. Hockey.
+                <br />
+                <span style={{ color: ACCENT }}>Maintenant.</span>
+              </h1>
+              <p className="mt-4 max-w-md text-base text-zinc-300 sm:text-lg">
+                <span className="font-semibold text-white">Tout ici, tout de suite.</span>{' '}
+                Du Québec au Canada, jusqu’au reste du monde.
+              </p>
+            </div>
+            <HomeSearch />
+          </div>
+        </section>
+
         {/* Grille bento */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* Héros + recherche */}
-          <section className={`${tile} lg:col-span-8 lg:row-span-2`} aria-label="Recherche">
-            <HeroPhotos photos={photos} />
-            {photos.length === 0 && (
-              <div
-                aria-hidden="true"
-                className="absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
-                style={{ background: `radial-gradient(circle, ${ACCENT}33 0%, transparent 70%)` }}
-              />
-            )}
-            <div className="relative z-10 flex h-full flex-col justify-between gap-10">
-              <div>
-                <span className="inline-block rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-400">
-                  {dateLabel}
-                </span>
-                <h1 className="mt-6 text-5xl font-semibold leading-[0.95] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
-                  Météo.
-                  <br />
-                  Hockey.
-                  <br />
-                  <span style={{ color: ACCENT }}>Maintenant.</span>
-                </h1>
-                <p className="mt-6 max-w-md text-base text-zinc-400 sm:text-lg">
-                  Les prévisions de toutes les villes, la carte du Québec et la LNH en direct.
-                </p>
-              </div>
-              <HomeSearch />
-            </div>
-          </section>
+          {/* Le monde en direct */}
+          <WorldLive
+            news={news}
+            quakes={quakes}
+            cities={worldCities}
+            className="lg:col-span-8 lg:row-span-2"
+          />
 
           {/* Montréal en grand */}
           {featured ? (
@@ -649,34 +775,36 @@ export default async function HomePage() {
             </div>
           </a>
 
-          {/* Autres villes */}
+          {/* Autres villes du Québec */}
           {others.length > 0 && (
-            <section className="lg:col-span-12" aria-label="Autres villes du Québec">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <section className={`${tile} lg:col-span-5`} aria-label="Autres villes du Québec">
+              <span className="text-sm font-medium text-zinc-400">Ailleurs au Québec</span>
+              <ul className="mt-3 divide-y divide-white/10">
                 {others.map((c) => (
-                  <a
-                    key={c.name}
-                    href={`/meteo/${encodeURIComponent(c.name)}`}
-                    className="group flex items-center justify-between gap-2 rounded-3xl border border-white/10 bg-[#111113] p-5 transition duration-300 hover:border-[#c8ff3d]/60 hover:bg-[#151517]"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-zinc-400">{c.name}</div>
-                      <div className="mt-1 text-4xl font-semibold tracking-[-0.04em] tabular-nums">
+                  <li key={c.name}>
+                    <a
+                      href={`/meteo/${encodeURIComponent(c.name)}`}
+                      className="group flex items-center gap-3 py-2.5 transition hover:text-[#c8ff3d]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`https://openweathermap.org/img/wn/${c.icon}.png`}
+                        alt=""
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-base font-medium">{c.name}</span>
+                        <span className="block truncate text-xs capitalize text-zinc-500">{c.description}</span>
+                      </span>
+                      <span className="text-2xl font-semibold tracking-[-0.03em] tabular-nums">
                         {fmtTemp(c.temp)}
-                      </div>
-                      <div className="mt-1 truncate text-xs capitalize text-zinc-500">{c.description}</div>
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`https://openweathermap.org/img/wn/${c.icon}@2x.png`}
-                      alt=""
-                      width={56}
-                      height={56}
-                      className="h-14 w-14 shrink-0 transition group-hover:scale-110"
-                    />
-                  </a>
+                      </span>
+                    </a>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
         </div>
@@ -704,6 +832,14 @@ export default async function HomePage() {
               OpenWeather
             </a>
             {' · '}Hockey : LNH (site non affilié à la LNH)
+            {' · '}Actualités :{' '}
+            <a href="https://fr.wikipedia.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+              Wikipédia
+            </a>
+            {' · '}Séismes :{' '}
+            <a href="https://earthquake.usgs.gov" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+              USGS
+            </a>
             {photos.length > 0 && (
               <>
                 {' · '}Photos :{' '}
