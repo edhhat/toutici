@@ -1,97 +1,542 @@
 // app/page.tsx
-import Link from 'next/link';
 import VisitorCounter from '@/components/VisitorCounter';
-import { COUNTRIES } from './lib/weather';
-import Navbar from './components/Navbar';
-import CitySearch from './components/CitySearch';
-import AdBanner from './components/AdBanner';
+import HomeSearch from './components/HomeSearch';
 
-/* Logo ToutIci : les deux « i » portent un soleil et un repère de position */
+export const runtime = 'edge';
+
+export const metadata = {
+  title: 'ToutIci · Météo, carte du Québec et LNH en direct',
+  description:
+    'Météo de toutes les villes, carte météo du Québec, résultats et classement de la LNH en direct. Tout au même endroit.',
+};
+
+const ACCENT = '#c8ff3d';
+
+/* ---------- Logo ---------- */
 function ToutIciLogo() {
   return (
     <svg
       viewBox="-12 -24 276 96"
       role="img"
       aria-label="ToutIci"
-      className="w-44 h-auto text-white drop-shadow-lg"
+      className="h-auto w-36 text-white sm:w-44"
     >
       <g fill="none" stroke="currentColor" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round">
-<path d="M10 6V44Q10 60 26 60"/><path d="M-2 22H24"/>
-<circle cx="54" cy="40" r="20"/>
-<path d="M84 20V40A20 20 0 0 0 124 40V20M124 38V60"/>
-<path d="M144 6V44Q144 60 160 60"/><path d="M132 22H158"/>
-<path d="M229.3 27.1A20 20 0 1 0 229.3 52.9"/>
-<path d="M178 20V60"/><path d="M250 20V60"/>
-</g><g stroke="#ffb400" strokeWidth="2.6" strokeLinecap="round"><line x1="188.0" y1="-4.0" x2="192.5" y2="-4.0"/><line x1="185.1" y1="3.1" x2="188.3" y2="6.3"/><line x1="178.0" y1="6.0" x2="178.0" y2="10.5"/><line x1="170.9" y1="3.1" x2="167.7" y2="6.3"/><line x1="168.0" y1="-4.0" x2="163.5" y2="-4.0"/><line x1="170.9" y1="-11.1" x2="167.7" y2="-14.3"/><line x1="178.0" y1="-14.0" x2="178.0" y2="-18.5"/><line x1="185.1" y1="-11.1" x2="188.3" y2="-14.3"/></g><circle cx="178" cy="-4" r="7.5" fill="#ffc21a"/><path fill="#ff5a4d" fillRule="evenodd" d="M250 10L244.7 1.4A7 7 0 1 1 255.3 1.4ZM247.5 -3a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0Z"/>
+        <path d="M10 6V44Q10 60 26 60" />
+        <path d="M-2 22H24" />
+        <circle cx="54" cy="40" r="20" />
+        <path d="M84 20V40A20 20 0 0 0 124 40V20M124 38V60" />
+        <path d="M144 6V44Q144 60 160 60" />
+        <path d="M132 22H158" />
+        <path d="M229.3 27.1A20 20 0 1 0 229.3 52.9" />
+        <path d="M178 20V60" />
+        <path d="M250 20V60" />
+      </g>
+      <g stroke="#ffb400" strokeWidth="2.6" strokeLinecap="round">
+        <line x1="188.0" y1="-4.0" x2="192.5" y2="-4.0" />
+        <line x1="185.1" y1="3.1" x2="188.3" y2="6.3" />
+        <line x1="178.0" y1="6.0" x2="178.0" y2="10.5" />
+        <line x1="170.9" y1="3.1" x2="167.7" y2="6.3" />
+        <line x1="168.0" y1="-4.0" x2="163.5" y2="-4.0" />
+        <line x1="170.9" y1="-11.1" x2="167.7" y2="-14.3" />
+        <line x1="178.0" y1="-14.0" x2="178.0" y2="-18.5" />
+        <line x1="185.1" y1="-11.1" x2="188.3" y2="-14.3" />
+      </g>
+      <circle cx="178" cy="-4" r="7.5" fill="#ffc21a" />
+      <path
+        fill="#ff5a4d"
+        fillRule="evenodd"
+        d="M250 10L244.7 1.4A7 7 0 1 1 255.3 1.4ZM247.5 -3a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0Z"
+      />
     </svg>
   );
 }
 
-/* Ciel dégagé de jour (même dégradé que la page ville par temps clair) */
-const SKY = 'linear-gradient(180deg, #1c6fd1 0%, #4aa3e8 55%, #f2c27a 100%)';
+/* ---------- Données : météo des villes du Québec ---------- */
+const HOME_CITIES = [
+  { name: 'Montréal', q: 'Montréal,CA', lat: 45.5, lon: -73.57 },
+  { name: 'Québec', q: 'Québec,CA', lat: 46.81, lon: -71.21 },
+  { name: 'Gatineau', q: 'Gatineau,CA', lat: 45.48, lon: -75.7 },
+  { name: 'Sherbrooke', q: 'Sherbrooke,CA', lat: 45.4, lon: -71.89 },
+  { name: 'Saguenay', q: 'Saguenay,CA', lat: 48.43, lon: -71.07 },
+  { name: 'Trois-Rivières', q: 'Trois-Rivières,CA', lat: 46.35, lon: -72.55 },
+];
 
-export default function Home() {
+/** Points décoratifs supplémentaires pour dessiner le Québec sur la carte */
+const MAP_EXTRA_DOTS: [number, number][] = [
+  [62.2, -75.64], [61.6, -71.95], [60.02, -70.03], [58.45, -78.1], [58.1, -68.4],
+  [55.28, -77.77], [54.8, -66.82], [51.42, -57.12], [50.23, -63.6], [50.2, -66.38],
+  [49.22, -68.15], [48.85, -67.53], [48.83, -64.48], [50.42, -73.87], [49.75, -77.63],
+  [48.1, -77.78], [48.24, -79.02], [48.45, -68.52],
+];
+
+interface CityNow {
+  name: string;
+  lat: number;
+  lon: number;
+  temp: number;
+  feels: number;
+  icon: string;
+  description: string;
+}
+
+async function getCitiesNow(apiKey: string | undefined): Promise<CityNow[]> {
+  if (!apiKey) return [];
+
+  const results = await Promise.all(
+    HOME_CITIES.map(async (c): Promise<CityNow | null> => {
+      try {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(c.q)}&units=metric&lang=fr&appid=${apiKey}`,
+          { next: { revalidate: 600 } }
+        );
+        if (!res.ok) return null;
+        const d = await res.json();
+        return {
+          name: c.name,
+          lat: c.lat,
+          lon: c.lon,
+          temp: Math.round(d.main.temp),
+          feels: Math.round(d.main.feels_like),
+          icon: d.weather?.[0]?.icon ?? '01d',
+          description: d.weather?.[0]?.description ?? '',
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return results.filter((r): r is CityNow => r !== null);
+}
+
+/* ---------- Données : LNH du jour ---------- */
+interface NhlRow {
+  id: number;
+  away: string;
+  home: string;
+  awayScore: number | null;
+  homeScore: number | null;
+  status: string;
+  live: boolean;
+}
+
+interface NhlSummary {
+  total: number;
+  live: number;
+  rows: NhlRow[];
+}
+
+function periodShort(n: number | null, type: string): string {
+  if (type === 'OT') return 'Prol.';
+  if (type === 'SO') return 'TB';
+  if (n === 1) return '1re';
+  return n ? `${n}e` : '';
+}
+
+async function getNhlSummary(): Promise<NhlSummary | null> {
+  try {
+    const res = await fetch('https://api-web.nhle.com/v1/score/now', {
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return null;
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const json: any = await res.json();
+    const games: any[] = json.games ?? [];
+
+    const isLive = (g: any) => g.gameState === 'LIVE' || g.gameState === 'CRIT';
+    const isFuture = (g: any) => g.gameState === 'FUT' || g.gameState === 'PRE';
+    const rank = (g: any) => (isLive(g) ? 0 : isFuture(g) ? 1 : 2);
+
+    const rows: NhlRow[] = [...games]
+      .sort((a, b) => rank(a) - rank(b) || String(a.startTimeUTC).localeCompare(String(b.startTimeUTC)))
+      .slice(0, 4)
+      .map((g) => {
+        let status = 'Final';
+        if (isLive(g)) {
+          const p = periodShort(g.periodDescriptor?.number ?? null, g.periodDescriptor?.periodType ?? 'REG');
+          status = g.clock?.inIntermission ? 'Entracte' : `${p} ${g.clock?.timeRemaining ?? ''}`.trim();
+        } else if (isFuture(g)) {
+          status = new Intl.DateTimeFormat('fr-CA', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'America/Toronto',
+          }).format(new Date(g.startTimeUTC));
+        } else if (g.gameOutcome?.lastPeriodType === 'OT') {
+          status = 'Final / Prol.';
+        } else if (g.gameOutcome?.lastPeriodType === 'SO') {
+          status = 'Final / TB';
+        }
+        return {
+          id: g.id,
+          away: g.awayTeam?.abbrev ?? '',
+          home: g.homeTeam?.abbrev ?? '',
+          awayScore: typeof g.awayTeam?.score === 'number' ? g.awayTeam.score : null,
+          homeScore: typeof g.homeTeam?.score === 'number' ? g.homeTeam.score : null,
+          status,
+          live: isLive(g),
+        };
+      });
+
+    return { total: games.length, live: games.filter(isLive).length, rows };
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- Style ---------- */
+const HOME_CSS = `
+@keyframes tici-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes tici-ping { 0% { transform: scale(1); opacity: .7 } 80%,100% { transform: scale(2.6); opacity: 0 } }
+@keyframes tici-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.tici-marquee { display: flex; width: max-content; animation: tici-marquee 45s linear infinite }
+.tici-marquee:hover { animation-play-state: paused }
+.tici-ping { transform-origin: center; transform-box: fill-box; animation: tici-ping 2.4s ease-out infinite }
+.tici-pulse { animation: tici-pulse 1.4s ease-in-out infinite }
+.tici-noise {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.5'/></svg>");
+}
+@media (prefers-reduced-motion: reduce) {
+  .tici-marquee, .tici-ping, .tici-pulse { animation: none !important }
+}
+`;
+
+const tile =
+  'relative overflow-hidden rounded-[28px] border border-white/10 bg-[#111113] p-6 sm:p-8';
+const tileLink = `${tile} group block transition duration-300 hover:border-[#c8ff3d]/60 hover:bg-[#151517]`;
+
+function Arrow() {
   return (
-    <main
-      className="min-h-screen flex flex-col items-center gap-5 px-5 py-10 text-white"
-      style={{ background: SKY }}
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5 transition group-hover:translate-x-1"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <div className="w-full max-w-4xl">
-        <Navbar />
-      </div>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
 
-      <header className="w-full max-w-4xl px-1 flex flex-col gap-5">
-        <ToutIciLogo />
-        <div>
-          <h1 className="text-4xl font-semibold tracking-tight">Météo</h1>
-          <p className="mt-1 text-white/75">
-            Recherchez n’importe quelle ville ou choisissez une destination
-          </p>
-        </div>
-      </header>
+/* Projection simple lat/lon -> SVG (cadre du Québec) */
+const MAP_W = 300;
+const MAP_H = 330;
+const px = (lon: number) => ((lon + 80) / 24) * MAP_W;
+const py = (lat: number) => ((62.5 - lat) / 18.5) * MAP_H;
 
-      <div className="w-full max-w-4xl">
-        <CitySearch />
-      </div>
+export default async function HomePage() {
+  const apiKey =
+    process.env.OPENWEATHER_API_KEY || process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
 
-      <div className="w-full max-w-4xl">
-        <AdBanner label="Bannière publicitaire - Accueil" />
-      </div>
+  const [cities, nhl] = await Promise.all([getCitiesNow(apiKey), getNhlSummary()]);
 
-      <section className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-5">
-        <h2 className="sr-only">Destinations</h2>
-        {Object.values(COUNTRIES).map((country) => (
-          <Link
-            key={country.slug}
-            href={`/${country.slug}`}
-            className="group rounded-3xl bg-white/10 backdrop-blur-md border border-white/15 p-7 transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white"
-          >
-            <h3 className="text-2xl font-semibold">
-              <span className="mr-2">{country.flag}</span>
-              {country.name}
-            </h3>
-            <p className="mt-1 text-sm text-white/70">
-              Voir les {country.cities.length} principales villes →
-            </p>
-          </Link>
-        ))}
-      </section>
+  const featured = cities.find((c) => c.name === 'Montréal') ?? null;
+  const others = cities.filter((c) => c !== featured);
 
-      <footer className="w-full max-w-4xl mt-2 text-center text-sm text-white/60">
-        Données météorologiques fournies par{' '}
-        <a
-          href="https://openweathermap.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-white"
+  const now = new Date();
+  const dateLong = new Intl.DateTimeFormat('fr-CA', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Toronto',
+  }).format(now);
+  const dateLabel = dateLong.charAt(0).toUpperCase() + dateLong.slice(1);
+
+  const fmtTemp = (n: number) => `${n}°`;
+
+  return (
+    <main className="relative min-h-screen bg-[#09090b] text-zinc-100">
+      <style>{HOME_CSS}</style>
+
+      {/* Grain */}
+      <div
+        aria-hidden="true"
+        className="tici-noise pointer-events-none fixed inset-0 z-0 opacity-[0.06] mix-blend-overlay"
+      />
+
+      {/* Bandeau défilant */}
+      {cities.length > 0 && (
+        <div
+          className="relative z-10 overflow-hidden border-b border-white/10 bg-black/60 py-2.5 text-xs text-zinc-300"
+          aria-label="Températures actuelles au Québec"
         >
-          OpenWeather
-        </a>
-        .
-        <div className="mt-3 text-white/70">
+          <div className="tici-marquee">
+            {[0, 1].map((dup) => (
+              <div key={dup} className="flex shrink-0 items-center gap-10 pr-10" aria-hidden={dup === 1}>
+                {cities.map((c) => (
+                  <a
+                    key={`${dup}-${c.name}`}
+                    href={`/meteo/${encodeURIComponent(c.name)}`}
+                    className="whitespace-nowrap hover:text-white"
+                  >
+                    <span className="text-zinc-500">{c.name}</span>{' '}
+                    <span className="font-semibold tabular-nums" style={{ color: ACCENT }}>
+                      {fmtTemp(c.temp)}
+                    </span>
+                  </a>
+                ))}
+                {nhl && nhl.live > 0 && (
+                  <a href="/nhl" className="whitespace-nowrap hover:text-white">
+                    <span className="tici-pulse mr-2 inline-block h-1.5 w-1.5 rounded-full bg-red-500 align-middle" />
+                    <span className="font-semibold">{nhl.live} match{nhl.live > 1 ? 's' : ''} LNH en direct</span>
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-12 pt-6 sm:px-6">
+        {/* En-tête */}
+        <header className="flex items-center justify-between gap-4 pb-6">
+          <a href="/" aria-label="ToutIci, accueil">
+            <ToutIciLogo />
+          </a>
+          <nav aria-label="Navigation principale" className="flex items-center gap-1 text-sm font-medium">
+            <a href="/quebec" className="rounded-full px-4 py-2 text-zinc-300 transition hover:bg-white/10 hover:text-white">
+              Québec
+            </a>
+            <a
+              href="/nhl"
+              className="flex items-center gap-2 rounded-full px-4 py-2 text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            >
+              LNH
+              {nhl && nhl.live > 0 && <span className="tici-pulse h-2 w-2 rounded-full bg-red-500" />}
+            </a>
+          </nav>
+        </header>
+
+        {/* Grille bento */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* Héros + recherche */}
+          <section className={`${tile} lg:col-span-8 lg:row-span-2`} aria-label="Recherche">
+            <div
+              aria-hidden="true"
+              className="absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
+              style={{ background: `radial-gradient(circle, ${ACCENT}33 0%, transparent 70%)` }}
+            />
+            <div className="relative flex h-full flex-col justify-between gap-10">
+              <div>
+                <span className="inline-block rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-400">
+                  {dateLabel}
+                </span>
+                <h1 className="mt-6 text-5xl font-semibold leading-[0.95] tracking-[-0.04em] sm:text-7xl lg:text-8xl">
+                  Météo.
+                  <br />
+                  Hockey.
+                  <br />
+                  <span style={{ color: ACCENT }}>Maintenant.</span>
+                </h1>
+                <p className="mt-6 max-w-md text-base text-zinc-400 sm:text-lg">
+                  Les prévisions de toutes les villes, la carte du Québec et la LNH en direct.
+                </p>
+              </div>
+              <HomeSearch />
+            </div>
+          </section>
+
+          {/* Montréal en grand */}
+          {featured ? (
+            <a
+              href={`/meteo/${encodeURIComponent(featured.name)}`}
+              className={`${tileLink} lg:col-span-4`}
+              style={{ background: 'linear-gradient(160deg, #1b1d22 0%, #111113 60%)' }}
+            >
+              <div className="flex items-start justify-between">
+                <span className="text-sm font-medium text-zinc-400">{featured.name}</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://openweathermap.org/img/wn/${featured.icon}@2x.png`}
+                  alt=""
+                  width={72}
+                  height={72}
+                  className="-mr-2 -mt-3 h-[72px] w-[72px]"
+                />
+              </div>
+              <div className="mt-2 text-8xl font-semibold leading-none tracking-[-0.06em] tabular-nums">
+                {fmtTemp(featured.temp)}
+              </div>
+              <p className="mt-3 text-sm capitalize text-zinc-400">
+                {featured.description} · ressenti {fmtTemp(featured.feels)}
+              </p>
+              <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: ACCENT }}>
+                Prévisions détaillées <Arrow />
+              </span>
+            </a>
+          ) : (
+            <div className={`${tile} flex items-center lg:col-span-4`}>
+              <p className="text-zinc-400">Cherche une ville pour voir sa météo.</p>
+            </div>
+          )}
+
+          {/* LNH */}
+          <a href="/nhl" className={`${tileLink} lg:col-span-4`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-zinc-400">LNH</span>
+              {nhl && nhl.live > 0 ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold text-red-300">
+                  <span className="tici-pulse h-1.5 w-1.5 rounded-full bg-red-500" />
+                  {nhl.live} en direct
+                </span>
+              ) : nhl && nhl.total > 0 ? (
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-300">
+                  {nhl.total} match{nhl.total > 1 ? 's' : ''} aujourd’hui
+                </span>
+              ) : null}
+            </div>
+
+            {nhl && nhl.rows.length > 0 ? (
+              <ul className="mt-4 space-y-2.5">
+                {nhl.rows.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 text-sm tabular-nums">
+                    <span className="font-semibold">
+                      {r.away}
+                      <span className={r.live ? 'mx-2 text-white' : 'mx-2 text-zinc-300'}>
+                        {r.awayScore !== null && r.homeScore !== null
+                          ? `${r.awayScore} – ${r.homeScore}`
+                          : 'vs'}
+                      </span>
+                      {r.home}
+                    </span>
+                    <span className={r.live ? 'font-semibold text-red-300' : 'text-zinc-500'}>
+                      {r.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-sm text-zinc-400">Aucun match aujourd’hui.</p>
+            )}
+
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: ACCENT }}>
+              Résultats et classement <Arrow />
+            </span>
+          </a>
+
+          {/* Carte du Québec */}
+          <a href="/quebec" className={`${tileLink} lg:col-span-7`}>
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="flex-1">
+                <span className="text-sm font-medium text-zinc-400">Carte météo</span>
+                <h2 className="mt-2 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                  Tout le Québec
+                  <br />
+                  en un coup d’œil.
+                </h2>
+                <p className="mt-3 max-w-sm text-sm text-zinc-400">
+                  Températures min et max de Montréal jusqu’au Nunavik, pour aujourd’hui et les
+                  4 prochains jours.
+                </p>
+                <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold" style={{ color: ACCENT }}>
+                  Ouvrir la carte <Arrow />
+                </span>
+              </div>
+
+              <svg
+                viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+                className="mx-auto h-56 w-auto shrink-0 sm:h-64"
+                role="img"
+                aria-label="Carte stylisée du Québec avec les températures de Montréal, Québec et Saguenay"
+              >
+                {MAP_EXTRA_DOTS.map(([lat, lon]) => (
+                  <circle key={`${lat}-${lon}`} cx={px(lon)} cy={py(lat)} r="3" fill="#3f3f46" />
+                ))}
+                {HOME_CITIES.map((c) => (
+                  <circle key={c.name} cx={px(c.lon)} cy={py(c.lat)} r="4" fill="#71717a" />
+                ))}
+                {cities
+                  .filter((c) => ['Montréal', 'Québec', 'Saguenay'].includes(c.name))
+                  .map((c) => {
+                    const x = px(c.lon);
+                    const y = py(c.lat);
+                    const left = c.name === 'Montréal';
+                    return (
+                      <g key={c.name}>
+                        <circle cx={x} cy={y} r="5" fill={ACCENT} className="tici-ping" />
+                        <circle cx={x} cy={y} r="5" fill={ACCENT} />
+                        <text
+                          x={left ? x - 11 : x + 11}
+                          y={y + 4}
+                          textAnchor={left ? 'end' : 'start'}
+                          fontSize="13"
+                          fontWeight="600"
+                          fill="#fafafa"
+                        >
+                          {c.name} {fmtTemp(c.temp)}
+                        </text>
+                      </g>
+                    );
+                  })}
+              </svg>
+            </div>
+          </a>
+
+          {/* Autres villes */}
+          {others.length > 0 && (
+            <section className="lg:col-span-12" aria-label="Autres villes du Québec">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                {others.map((c) => (
+                  <a
+                    key={c.name}
+                    href={`/meteo/${encodeURIComponent(c.name)}`}
+                    className="group flex items-center justify-between gap-2 rounded-3xl border border-white/10 bg-[#111113] p-5 transition duration-300 hover:border-[#c8ff3d]/60 hover:bg-[#151517]"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-zinc-400">{c.name}</div>
+                      <div className="mt-1 text-4xl font-semibold tracking-[-0.04em] tabular-nums">
+                        {fmtTemp(c.temp)}
+                      </div>
+                      <div className="mt-1 truncate text-xs capitalize text-zinc-500">{c.description}</div>
+                    </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://openweathermap.org/img/wn/${c.icon}@2x.png`}
+                      alt=""
+                      width={56}
+                      height={56}
+                      className="h-14 w-14 shrink-0 transition group-hover:scale-110"
+                    />
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Pied de page */}
+        <div className="mt-12 text-center text-zinc-500">
           <VisitorCounter />
         </div>
-      </footer>
+
+        <footer className="mt-6 border-t border-white/10 pt-6 text-center text-xs leading-relaxed text-zinc-500">
+          <nav
+            aria-label="Liens du pied de page"
+            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-zinc-400"
+          >
+            <a href="/" className="hover:text-white">Accueil</a>
+            <a href="/quebec" className="hover:text-white">Météo Québec</a>
+            <a href="/nhl" className="hover:text-white">LNH</a>
+            <a href="/conditions" className="hover:text-white">Conditions d’utilisation</a>
+            <a href="/confidentialite" className="hover:text-white">Politique de confidentialité</a>
+          </nav>
+
+          <p className="mt-5">
+            Données météo :{' '}
+            <a href="https://openweathermap.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-white">
+              OpenWeather
+            </a>
+            {' · '}Hockey : LNH (site non affilié à la LNH)
+          </p>
+          <p className="mt-3">© {now.getFullYear()} Eddy Huart. Tous droits réservés.</p>
+          <p className="mt-1">ToutIci est la propriété d’Eddy Huart.</p>
+        </footer>
+      </div>
     </main>
   );
 }
